@@ -130,7 +130,7 @@ isSpace s
     | s == ' ' = True
     | s == '\t' = True
     | s == '\n' = True
-    otherwise False
+    | otherwise = False
 
 -- 2. parse token using parser p, throw away trailing space
 token :: Parser a -> Parser a
