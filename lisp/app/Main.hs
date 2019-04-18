@@ -36,7 +36,7 @@ instance Applicative Parser where
     -- <*> :: Parser (a -> b) -> Parser a -> Parser b
     pg <*> px = Parser (\cs -> case parse pg cs of
                         [] -> []
-                        [(a, cs')] -> parse (fmap a px) out) 
+                        [(a, cs')] -> parse (fmap a px) cs') 
 
 instance Monad Parser where
     -- lift into parser context
@@ -61,11 +61,11 @@ instance MonadZero Parser where
 
 -- -- can combine parsers! apply both parsers p and q
 instance MonadPlus Parser where
-    p ++ q = Parser (\cs -> parse p cs Prelude.++ parse q cs)
+    p ++ q = Parser (\cs -> (parse p cs) Prelude.++ (parse q cs))
 
 -- define deterministic ++, where we just take first result
 (+++) :: Parser a -> Parser a -> Parser a
-p +++ q = Parser (\cs -> case parse (p Prelude.++ q) cs of 
+p +++ q = Parser (\cs -> case parse (p Main.++ q) cs of 
                         [] -> []
                         (x:xs) -> [x])
 
@@ -110,12 +110,13 @@ p `sepby1` sep = do a <- p
 chainl :: Parser a -> Parser (a -> a -> a) -> a -> Parser a
 chainl p op a = (p `chainl1` op) +++ return a
 
-chainl1 :: Parser a -> Parser (a -> a -> a) -> a -> Parser a
+chainl1 :: Parser a -> Parser (a -> a -> a) -> Parser a
 p `chainl1` op = do {a <- p; rest a}
                 where 
                     rest a = (do f <- op
                                  b <- p
-                                 rest (f a b)) +++ return a
+                                 rest (f a b))
+                             +++ return a
 
 
 -- no need to have lexical phase (string -> seq of tokens)
