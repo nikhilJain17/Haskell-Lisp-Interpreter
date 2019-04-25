@@ -43,41 +43,41 @@ addop = do {symb "+"; return (+)} +++ do {symb "-"; return (-)}
 mulop = do {symb "*"; return (*)} +++ do {symb "/"; return (div)}
 
 -----------------------------------------------------------------------------
--- 2. This code takes in an AST and pretty-prints it (aka convert to String).
+-- 2. This code takes in an AST and prints it (aka convert to String).
 -- AST -> [printExpr] -> "1 (2 ( 3 4 5) 4)"
 -----------------------------------------------------------------------------
 -- our tree can be binary since we are only using binary ops
 
 data AST a = Nil | Node a (AST a) (AST a) deriving Show
 
+printExpr :: AST a -> String
+printExpr Nil = "Nil"
+printExpr (Node root left right) = 
+	 show root ++ " (" ++ printExpr left ++ "), (" 
+	 ++ printExpr right ++ ")" 
+
+
+-- human-readable printing for debugging
 -- https://stackoverflow.com/questions/12556469/nicely-printing-showing-a-binary-tree-in-haskell
 
-printExpr tree = unlines (printExprHelper tree)
+debugPrint tree = unlines (debugPrintHelper tree)
 
--- printExprHelper :: 
-printExprHelper (Node root left right) 
+debugPrintHelper (Node root left right) 
     = (show root) : (printSubtree left right)
         where 
             printSubtree left right =
-            	((pad "+- " "|  ") (printExprHelper right))
-            	    ++ ((pad "`- " "   ") (printExprHelper left))
+            	((pad "+- " "|  ") (debugPrintHelper right))
+            	    ++ ((pad "`- " "   ") (debugPrintHelper left))
 
             pad first rest = zipWith (++) (first : repeat rest)
-printExprHelper Nil = [] 
+debugPrintHelper Nil = [] 
 
-
-printExpr2 Nil = "Nil"
-printExpr2 (Node root left right) = 
-	 show root ++ " (" ++ printExpr2 left ++ "), (" 
-	 ++ printExpr2 right ++ ")" 
 
 -----------------------------------------------------------------------------
--- 3. This code takes in pretty-print tree (str) and makes AST 
+-- 3. This code takes in printed tree (String) and makes AST 
 -- "1 (2 ( 3 4 5) 4)" -> [printExpr] -> AST
 -----------------------------------------------------------------------------
 
--- parser for newlines
-newline = char 'a'
 
 
 
