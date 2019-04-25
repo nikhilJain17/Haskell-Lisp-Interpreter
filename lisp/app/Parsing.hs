@@ -15,6 +15,7 @@ apply,
 token,
 isSpace,
 --isDigit
+newline_search
 ) where
 -- http://www.cs.nott.ac.uk/~pszgmh/pearl.pdf
 
@@ -157,4 +158,10 @@ symb cs = token (string cs)
 -- 4. apply parser p, throw away leading space
 apply :: Parser a -> String -> [(a, String)]
 apply p = parse (do {space; p})
+
+-- 5. consume chars until first occurence of char
+-- char_search :: char -> Parser b -> Parser [a]
+newline_search = do {a <- item; result <- char '\n'; return result}
+
+
 

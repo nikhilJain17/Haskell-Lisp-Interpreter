@@ -47,15 +47,13 @@ mulop = do {symb "*"; return (*)} +++ do {symb "/"; return (div)}
 -- AST -> [printExpr] -> "1 (2 ( 3 4 5) 4)"
 -----------------------------------------------------------------------------
 -- our tree can be binary since we are only using binary ops
--- for right now, we assume we have AST String. not worrying about converting types.
 
 data AST a = Nil | Node a (AST a) (AST a) deriving Show
 
 -- learn this fam
 -- https://stackoverflow.com/questions/12556469/nicely-printing-showing-a-binary-tree-in-haskell
 
--- printExpr :: AST String -> String
-printExpr tree = unlines (printExprHelper tree)
+printExpr tree = concat (printExprHelper tree)
 
 -- printExprHelper :: 
 printExprHelper (Node root left right) 
@@ -68,6 +66,13 @@ printExprHelper (Node root left right)
             pad first rest = zipWith (++) (first : repeat rest)
 printExprHelper Nil = [] 
 
+-----------------------------------------------------------------------------
+-- 3. This code takes in pretty-print tree (str) and makes AST 
+-- "1 (2 ( 3 4 5) 4)" -> [printExpr] -> AST
+-----------------------------------------------------------------------------
+
+-- parser for newlines
+newline = char 'a'
 
 
 
