@@ -155,6 +155,9 @@ token p = do {a <- p; space; return a}
 symb :: String -> Parser String
 symb cs = token (string cs)
 
+token2 p = do {item; a <- p; return a}
+symb2 cs = token2 (string cs)
+
 -- 4. apply parser p, throw away leading space
 apply :: Parser a -> String -> [(a, String)]
 apply p = parse (do {space; p})

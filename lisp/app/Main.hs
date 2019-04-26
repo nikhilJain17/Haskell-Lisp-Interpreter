@@ -50,10 +50,10 @@ mulop = do {symb "*"; return (*)} +++ do {symb "/"; return (div)}
 
 data AST a = Nil | Node a (AST a) (AST a) deriving Show
 
-printExpr :: AST a -> String
+printExpr :: AST String -> String
 printExpr Nil = "Nil"
 printExpr (Node root left right) = 
-	 show root ++ " (" ++ printExpr left ++ "), (" 
+	 root ++ " (" ++ printExpr left ++ "), (" 
 	 ++ printExpr right ++ ")" 
 
 
@@ -76,9 +76,10 @@ debugPrintHelper Nil = []
 -----------------------------------------------------------------------------
 -- 3. This code takes in printed tree (String) and makes AST 
 -- "1 (2 ( 3 4 5) 4)" -> [printExpr] -> AST
------------------------------------------------------------------------------
+----------------------------------------------------------------------------
 
-
+parseExpr :: String -> [(String, String)]
+parseExpr string = apply ((sat isDigit) `sepby` ((char '(' ) +++ (char ')')) ) "1 ( 2 ( 3 4)"
 
 
 
