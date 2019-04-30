@@ -50,12 +50,12 @@ mulop = do {symb "*"; return (*)} +++ do {symb "/"; return (div)}
 
 data AST a = Nil | Node a (AST a) (AST a) deriving Show
 
-printExpr :: AST String -> String
+printExpr :: Show a => AST a -> String
 printExpr Nil = "Nil"
 printExpr (Node root left right) = 
-	 root ++ " (" ++ printExpr left ++ "), (" 
+	 show root ++ " (" ++ printExpr left ++ "), (" 
 	 ++ printExpr right ++ ")" 
-
+-- (), [] for left, right 
 
 -- human-readable printing for debugging
 -- https://stackoverflow.com/questions/12556469/nicely-printing-showing-a-binary-tree-in-haskell
@@ -78,10 +78,19 @@ debugPrintHelper Nil = []
 -- "1 (2 ( 3 4 5) 4)" -> [printExpr] -> AST
 ----------------------------------------------------------------------------
 
-parseExpr :: String -> [(String, String)]
-parseExpr string = apply ((sat isDigit) `sepby` ((char '(' ) +++ (char ')')) ) "1 ( 2 ( 3 4)"
+-- @TODO
+-- convert this to parser type so we can apply many
+-- also put into AST lmoa
 
+-- parseExpr :: String -> [(String, String)]
+-- doesn't do paren! only nabs root, need to delete th
+parseExpr string = return $ apply (item `sepby` ((char '(' ) +++ (char ')')) ) string --"1 ( 2 ( 3 4)"
 
+-- f string = do {a <- parseExpr; b <- space; c <- parseExpr; return c}
+
+-- f :: [(String, String)] -> AST String 
+-- f [("Nil", _)] = Nil
+-- f [(root, rest)] = (Node root, rest, rest)
 
 
 

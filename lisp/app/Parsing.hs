@@ -155,6 +155,7 @@ token p = do {a <- p; space; return a}
 symb :: String -> Parser String
 symb cs = token (string cs)
 
+-- could probably delete these
 token2 p = do {item; a <- p; return a}
 symb2 cs = token2 (string cs)
 
