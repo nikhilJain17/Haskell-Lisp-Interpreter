@@ -53,8 +53,8 @@ data AST a = Nil | Node a (AST a) (AST a) deriving Show
 printExpr :: Show a => AST a -> String
 printExpr Nil = ""
 printExpr (Node root left right) = 
-	 show root ++ " (" ++ printExpr left ++ "), (" 
-	 ++ printExpr right ++ ")" 
+	 show root ++ " (" ++ printExpr left ++ "), [" 
+	 ++ printExpr right ++ "]" 
 -- (), [] for left, right 
 
 -- human-readable printing for debugging
@@ -81,14 +81,27 @@ debugPrintHelper Nil = []
 
 -- @TODO convert this into a monad!
 -- proof of concept at the moment
+-- @ TODO get rid of parens!!!!!!
 parseExpr :: String -> [(String, String)]
 parseExpr input = apply (item `sepby` ((symb "(" ) +++ (symb ")"))) input --"1 ( 2 ( 3 4)"
 
+firstLast::[a]->[a]
+firstLast [] = []
+firstLast [x] = []
+firstLast xs = tail (init xs)
+
+
 -- guard expr on root () and []
+-- handle parens!
 comb :: String -> AST String
 comb "" = Nil
-comb input = (Node (fst result) (comb (snd result)) Nil)
-				where result = (parseExpr input)!!0 
+comb input 
+	| fst result == "(" = comb (firstLast input) -- get rid of paren, handle left case
+	| fst result == " " = comb (tail input) -- get rid of space
+	| otherwise = (Node (fst result) (comb (snd result)) (Nil)) 
+	where result = (parseExpr input)!!0
+-- comb input = (Node (fst result) (comb (snd result)) Nil)
+				-- where result = (parseExpr input)!!0 
 					  -- left = comb (parseExpr (snd ((parseExpr input)!!0)))
 					  -- right = Nil
 
