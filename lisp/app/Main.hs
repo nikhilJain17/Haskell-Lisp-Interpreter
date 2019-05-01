@@ -51,7 +51,7 @@ mulop = do {symb "*"; return (*)} +++ do {symb "/"; return (div)}
 data AST a = Nil | Node a (AST a) (AST a) deriving Show
 
 printExpr :: Show a => AST a -> String
-printExpr Nil = "Nil"
+printExpr Nil = ""
 printExpr (Node root left right) = 
 	 show root ++ " (" ++ printExpr left ++ "), (" 
 	 ++ printExpr right ++ ")" 
@@ -78,21 +78,19 @@ debugPrintHelper Nil = []
 -- "1 (2 ( 3 4 5) 4)" -> [printExpr] -> AST
 ----------------------------------------------------------------------------
 
--- @TODO
--- convert this to parser type so we can apply many
--- also put into AST lmoa
 
--- parseExpr :: String -> [(String, String)]
--- doesn't do paren! only nabs root, need to delete th
-parseExpr string = return $ apply (item `sepby` ((char '(' ) +++ (char ')')) ) string --"1 ( 2 ( 3 4)"
+-- @TODO convert this into a monad!
+-- proof of concept at the moment
+parseExpr :: String -> [(String, String)]
+parseExpr input = apply (item `sepby` ((symb "(" ) +++ (symb ")"))) input --"1 ( 2 ( 3 4)"
 
--- f string = do {a <- parseExpr; b <- space; c <- parseExpr; return c}
-
--- f :: [(String, String)] -> AST String 
--- f [("Nil", _)] = Nil
--- f [(root, rest)] = (Node root, rest, rest)
-
-
+-- guard expr on root () and []
+comb :: String -> AST String
+comb "" = Nil
+comb input = (Node (fst result) (comb (snd result)) Nil)
+				where result = (parseExpr input)!!0 
+					  -- left = comb (parseExpr (snd ((parseExpr input)!!0)))
+					  -- right = Nil
 
 
 
