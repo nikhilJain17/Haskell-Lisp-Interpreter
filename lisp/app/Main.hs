@@ -53,8 +53,8 @@ data AST a = Nil | Node a (AST a) (AST a) deriving Show
 printExpr :: Show a => AST a -> String
 printExpr Nil = ""
 printExpr (Node root left right) = 
-	 show root ++ " (" ++ printExpr left ++ "), [" 
-	 ++ printExpr right ++ "]" 
+	 show root ++ " ( " ++ printExpr left ++ " ) " ++ " [ " 
+	 ++ printExpr right ++ " ] " 
 -- (), [] for left, right 
 
 -- human-readable printing for debugging
@@ -91,14 +91,22 @@ firstLast [x] = []
 firstLast xs = tail (init xs)
 
 
+-- @TODO
+-- 1. Get rid of the parenthesis!
+-- 2. Figure out left and right
+
 -- guard expr on root () and []
 -- handle parens!
 comb :: String -> AST String
 comb "" = Nil
-comb input 
-	| fst result == "(" = comb (firstLast input) -- get rid of paren, handle left case
+comb input
+	| fst result == "(" = comb (tail input) -- get rid of paren, handle left case
+	| fst result == ")" = comb (tail input) -- am i dumb
+	| fst result == "[" = comb (tail input) -- lmoa
+	| fst result == "]" = comb (tail input) -- lmoa
 	| fst result == " " = comb (tail input) -- get rid of space
 	| otherwise = (Node (fst result) (comb (snd result)) (Nil)) 
+	-- | check for right child, do (Node fs)
 	where result = (parseExpr input)!!0
 -- comb input = (Node (fst result) (comb (snd result)) Nil)
 				-- where result = (parseExpr input)!!0 
