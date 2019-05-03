@@ -48,13 +48,15 @@ mulop = do {symb "*"; return (*)} +++ do {symb "/"; return (div)}
 -----------------------------------------------------------------------------
 -- our tree can be binary since we are only using binary ops
 
-data AST a = Nil | Node a (AST a) (AST a) deriving Show
+--				   root    left    right   parent
+data AST a = Nil | Node a (Node a) (Node a) deriving Show
+data Node a = a Node a -- have some notion of parent?
 
 printExpr :: Show a => AST a -> String
 printExpr Nil = ""
 printExpr (Node root left right) = 
-	 show root ++ " ( " ++ printExpr left ++ " ) " ++ " [ " 
-	 ++ printExpr right ++ " ] " 
+	 show root ++ " ( " ++ printExpr left ++ " ) " ++ " ( " 
+	 ++ printExpr right ++ " ) " 
 -- (), [] for left, right 
 
 -- human-readable printing for debugging
@@ -92,26 +94,45 @@ firstLast xs = tail (init xs)
 
 
 -- @TODO
--- 1. Get rid of the parenthesis!
--- 2. Figure out left and right
+-- 1. Get rid of the parenthesis! (done)
+-- 2. Figure out left and right 
 
 -- guard expr on root () and []
 -- handle parens!
-comb :: String -> AST String
-comb "" = Nil
-comb input
+
+-- parseTree :: String -> AST String -> AST String
+-- parseTree input (root left right parent) =
+-- 	| fst result == "(" = parseTree (tail input) left
+-- 	| fst result `elem` ["+", "-", "/", "*"] =  
+	-- where result = (parseExpr input)!!0
+
+
+-- ignore this
+comb :: String -> AST -> AST String
+comb "" _ = Nil
+comb input (root left right (proot pleft pright))
 	| fst result == "(" = comb (tail input) -- get rid of paren, handle left case
-	| fst result == ")" = comb (tail input) -- am i dumb
-	| fst result == "[" = comb (tail input) -- lmoa
-	| fst result == "]" = comb (tail input) -- lmoa
-	| fst result == " " = comb (tail input) -- get rid of space
-	| otherwise = (Node (fst result) (comb (snd result)) (Nil)) 
-	-- | check for right child, do (Node fs)
+	| fst result == ")" = comb (tail input) -- ...
+	| fst result == " " = comb (tail input) side -- get rid of space
+	| fst result `elem` ["+", "-", "/", "*"] = (Node (fst result) Nil (comb (snd result) root)
+    | isDigit (fst result) = (Node (fst result) )
+
 	where result = (parseExpr input)!!0
--- comb input = (Node (fst result) (comb (snd result)) Nil)
-				-- where result = (parseExpr input)!!0 
-					  -- left = comb (parseExpr (snd ((parseExpr input)!!0)))
-					  -- right = Nil
+
+
+-- old version of comb that cannot handle traversing up the tree
+-- comb :: String -> AST String
+-- comb "" = Nil
+-- comb input
+-- 	| fst result == "(" = comb (tail input) -- get rid of paren, handle left case
+-- 	| fst result == ")" = comb (tail input) -- am i dumb
+-- 	| fst result == "[" = comb (tail input) -- lmoa
+-- 	| fst result == "]" = comb (tail input) -- lmoa
+-- 	| fst result == " " = comb (tail input) -- get rid of space
+-- 	| otherwise = (Node (fst result) (comb (snd result)) (Nil)) 
+-- 	-- | check for right child, do (Node fs)
+-- 	where result = (parseExpr input)!!0
+
 
 
 
