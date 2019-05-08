@@ -80,20 +80,34 @@ debugPrintHelper Nil = []
 -- "1 (2 ( 3 4 5) 4)" -> [printExpr] -> AST
 ----------------------------------------------------------------------------
 
+-- function that nabs the root from a subtree
+root :: String -> String
+root "" = ""
+root input = 
+	if first == "(" 
+		then ""
+		else first Prelude.++ (root (tail input))
+	where first = take 1 input
 
 
--- parser that nabs first subtree i.e. the stuff between the parens
+-- function that nabs first subtree i.e. the stuff between the parens
 -- e.g. "4(1(2)(3))(3()())" --> "1(2)(3)""
 subtree :: String -> String
 subtree "()" = ""
 subtree "" = ""
 subtree (s:cs) = -- hunt for the first left paren
-	if s == "(" then subtreeHelper s 1 else subtree cs
+	if s == '(' then subtreeHelper cs 1 else subtree cs
 
 
 subtreeHelper :: String -> Int -> String
-subtreeHelper (s:cs) numLeft = -- figure out how to combine recursive case
-	if s == ")" then s:subtreeHelper cs (numLeft - 1)  
+subtreeHelper input numLeft = -- figure out how to combine recursive case
+	if s == ")" then 
+		if (numLeft - 1) == 0 then ")"
+		else s Prelude.++ (subtreeHelper (tail input) (numLeft-1))
+	else if s == "(" 
+		then s Prelude.++ (subtreeHelper (tail input) (numLeft+1)) 
+		else s Prelude.++ (subtreeHelper (tail input) numLeft) 
+	where s = take 1 input 
 
 
 
