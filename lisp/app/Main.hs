@@ -53,7 +53,7 @@ data AST a = Nil | Node a (AST a) (AST a) deriving Show
 -- data Node a = a Node a -- have some notion of parent?
 
 printExpr :: Show a => AST a -> String
-printExpr Nil = "()"
+printExpr Nil = ""
 printExpr (Node root left right) = 
 	 show root ++ " ( " ++ printExpr left ++ " ) " ++ " ( " 
 	 ++ printExpr right ++ " ) " 
@@ -121,10 +121,10 @@ subtreeHelper input numLeft = -- figure out how to combine recursive case
 
 
 -- main func from String -> AST
--- parseExpr :: String -> AST String
--- parseExpr "" = Nil
--- parseExpr s = 
--- 	Node (root s) AST  
+parseExpr :: String -> AST String
+parseExpr "" = Nil
+parseExpr s = 
+	(Node (root s) (parseExpr (leftSubtree s)) (parseExpr (rightSubtree s)))
 
 
 
