@@ -49,11 +49,11 @@ mulop = do {symb "*"; return (*)} +++ do {symb "/"; return (div)}
 -- our tree can be binary since we are only using binary ops
 
 --				   root    left    right   parent
-data AST a = Nil | Node a (Node a) (Node a) deriving Show
-data Node a = a Node a -- have some notion of parent?
+data AST a = Nil | Node a (AST a) (AST a) deriving Show
+-- data Node a = a Node a -- have some notion of parent?
 
 printExpr :: Show a => AST a -> String
-printExpr Nil = ""
+printExpr Nil = "()"
 printExpr (Node root left right) = 
 	 show root ++ " ( " ++ printExpr left ++ " ) " ++ " ( " 
 	 ++ printExpr right ++ " ) " 
@@ -81,55 +81,44 @@ debugPrintHelper Nil = []
 ----------------------------------------------------------------------------
 
 
+
+-- parser that nabs first subtree i.e. the stuff between the parens
+-- e.g. "4(1(2)(3))(3()())" --> "1(2)(3)""
+subtree :: String -> String
+subtree "()" = ""
+subtree "" = ""
+subtree (s:cs) = -- hunt for the first left paren
+	if s == "(" then subtreeHelper s 1 else subtree cs
+
+
+subtreeHelper :: String -> Int -> String
+subtreeHelper (s:cs) numLeft = -- figure out how to combine recursive case
+	if s == ")" then s:subtreeHelper cs (numLeft - 1)  
+
+
+
+
+
+
+
 -- @TODO convert this into a monad!
 -- proof of concept at the moment
 -- @ TODO get rid of parens!!!!!!
-parseExpr :: String -> [(String, String)]
-parseExpr input = apply (item `sepby` ((symb "(" ) +++ (symb ")"))) input --"1 ( 2 ( 3 4)"
-
-firstLast::[a]->[a]
-firstLast [] = []
-firstLast [x] = []
-firstLast xs = tail (init xs)
-
-
--- @TODO
--- 1. Get rid of the parenthesis! (done)
--- 2. Figure out left and right 
-
--- guard expr on root () and []
--- handle parens!
-
--- parseTree :: String -> AST String -> AST String
--- parseTree input (root left right parent) =
--- 	| fst result == "(" = parseTree (tail input) left
--- 	| fst result `elem` ["+", "-", "/", "*"] =  
-	-- where result = (parseExpr input)!!0
-
-
--- ignore this
-comb :: String -> AST -> AST String
-comb "" _ = Nil
-comb input (root left right (proot pleft pright))
-	| fst result == "(" = comb (tail input) -- get rid of paren, handle left case
-	| fst result == ")" = comb (tail input) -- ...
-	| fst result == " " = comb (tail input) side -- get rid of space
-	| fst result `elem` ["+", "-", "/", "*"] = (Node (fst result) Nil (comb (snd result) root)
-    | isDigit (fst result) = (Node (fst result) )
-
-	where result = (parseExpr input)!!0
+-- parseExpr :: String -> [(String, String)]
+-- parseExpr input = apply (item `sepby` ((symb "(" ) +++ (symb ")"))) input --"1 ( 2 ( 3 4)"
 
 
 -- old version of comb that cannot handle traversing up the tree
--- comb :: String -> AST String
--- comb "" = Nil
--- comb input
--- 	| fst result == "(" = comb (tail input) -- get rid of paren, handle left case
--- 	| fst result == ")" = comb (tail input) -- am i dumb
--- 	| fst result == "[" = comb (tail input) -- lmoa
--- 	| fst result == "]" = comb (tail input) -- lmoa
--- 	| fst result == " " = comb (tail input) -- get rid of space
--- 	| otherwise = (Node (fst result) (comb (snd result)) (Nil)) 
+-- comb :: String -> String -> AST String
+-- comb "" _ = Nil
+-- comb input side
+-- 	| fst result == "(" = comb (tail input) "left" -- get rid of paren, handle left case
+-- 	| fst result == ")" = comb (tail input) "right" -- 
+-- 	| fst result == " " = comb (tail input) side -- get rid of space
+-- 	| otherwise =
+-- 		if side == "left" then (Node (fst result) (comb (snd result) side) (Nil)) 
+-- 		else if side == "right" then (Node (fst result) (Nil) (comb (snd result) side))
+-- 			else Node "INVALID" Nil Nil 
 -- 	-- | check for right child, do (Node fs)
 -- 	where result = (parseExpr input)!!0
 
