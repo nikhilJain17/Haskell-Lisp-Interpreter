@@ -48,7 +48,7 @@ mulop = do {symb "*"; return (*)} +++ do {symb "/"; return (div)}
 -----------------------------------------------------------------------------
 -- our tree can be binary since we are only using binary ops
 
---				   root    left    right   parent
+--				   root    left    right   
 data AST a = Nil | Node a (AST a) (AST a) deriving Show
 -- data Node a = a Node a -- have some notion of parent?
 
@@ -94,10 +94,20 @@ root input =
 -- e.g. "4(1(2)(3))(3()())" --> "1(2)(3)""
 subtree :: String -> String
 subtree "()" = ""
-subtree "" = ""
+subtree "" = " "
 subtree (s:cs) = -- hunt for the first left paren
 	if s == '(' then subtreeHelper cs 1 else subtree cs
 
+
+-- get left subtree
+leftSubtree :: String -> String
+leftSubtree s = init $ subtree s
+
+-- get right subtree
+rightSubtree :: String -> String
+rightSubtree s = -- chop off root and left subtree and eat the rest
+	init $ subtree $ take (length s) $ drop (length extra) s
+	where extra = (root s) ++ (leftSubtree s)
 
 subtreeHelper :: String -> Int -> String
 subtreeHelper input numLeft = -- figure out how to combine recursive case
@@ -110,7 +120,11 @@ subtreeHelper input numLeft = -- figure out how to combine recursive case
 	where s = take 1 input 
 
 
-
+-- main func from String -> AST
+-- parseExpr :: String -> AST String
+-- parseExpr "" = Nil
+-- parseExpr s = 
+-- 	Node (root s) AST  
 
 
 
