@@ -52,20 +52,24 @@ mulop = do {symb "*"; return (*)} +++ do {symb "/"; return (div)}
 data AST a = Nil | Node a (AST a) (AST a) deriving Show
 -- data Node a = a Node a -- have some notion of parent?
 
-printExpr :: Show a => AST a -> String
-printExpr Nil = ""
+-- printExpr :: Show a => AST a -> String
+printExpr :: AST String -> String
+printExpr (Node root _ Nil) = root
+printExpr (Node root Nil _) = root
 printExpr (Node root left right) = 
-	 show root ++ " ( " ++ printExpr left ++ " ) " ++ " ( " 
-	 ++ printExpr right ++ " ) " 
+	 root ++ "(" ++ printExpr left ++ ") (" 
+	 ++ printExpr right ++ ")" 
 -- (), [] for left, right 
 
 -- human-readable printing for debugging
 -- https://stackoverflow.com/questions/12556469/nicely-printing-showing-a-binary-tree-in-haskell
-
+-- to use: putStrLn (debugPrint tree)
+debugPrint :: AST String -> String
 debugPrint tree = unlines (debugPrintHelper tree)
 
+-- debugPrintHelper :: AST String -> String
 debugPrintHelper (Node root left right) 
-    = (show root) : (printSubtree left right)
+    = root : (printSubtree left right)
         where 
             printSubtree left right =
             	((pad "+- " "|  ") (debugPrintHelper right))
@@ -127,33 +131,13 @@ parseExpr s =
 	(Node (root s) (parseExpr (leftSubtree s)) (parseExpr (rightSubtree s)))
 
 
+-- need to fix printExpr so that printExpr . parseExpr x = x !!!!!
 
 
--- @TODO convert this into a monad!
--- proof of concept at the moment
--- @ TODO get rid of parens!!!!!!
--- parseExpr :: String -> [(String, String)]
--- parseExpr input = apply (item `sepby` ((symb "(" ) +++ (symb ")"))) input --"1 ( 2 ( 3 4)"
-
-
--- old version of comb that cannot handle traversing up the tree
--- comb :: String -> String -> AST String
--- comb "" _ = Nil
--- comb input side
--- 	| fst result == "(" = comb (tail input) "left" -- get rid of paren, handle left case
--- 	| fst result == ")" = comb (tail input) "right" -- 
--- 	| fst result == " " = comb (tail input) side -- get rid of space
--- 	| otherwise =
--- 		if side == "left" then (Node (fst result) (comb (snd result) side) (Nil)) 
--- 		else if side == "right" then (Node (fst result) (Nil) (comb (snd result) side))
--- 			else Node "INVALID" Nil Nil 
--- 	-- | check for right child, do (Node fs)
--- 	where result = (parseExpr input)!!0
-
-
-
-
-
+------------------------------------------------------------------------------
+-- 4. Evaluate an AST of expressions
+-- i.e. AST String -> Int
+-------------------------------------------------------------------------------
 
 
 
