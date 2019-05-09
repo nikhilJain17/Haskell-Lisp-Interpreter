@@ -44,11 +44,11 @@ mulop = do {symb "*"; return (*)} +++ do {symb "/"; return (div)}
 
 -----------------------------------------------------------------------------
 -- 2. This code takes in an AST and prints it (aka convert to String).
--- AST -> [printExpr] -> "1 (2 ( 3 4 5) 4)"
+-- AST -> [printExpr] -> "1 (2 (3 (4) (5)) 4)"
 -----------------------------------------------------------------------------
 -- our tree can be binary since we are only using binary ops
 
---				   root    left    right   
+--                 root    left    right   
 data AST a = Nil | Node a (AST a) (AST a) deriving Show
 -- data Node a = a Node a -- have some notion of parent?
 
@@ -57,8 +57,8 @@ printExpr :: AST String -> String
 printExpr (Node root _ Nil) = root
 printExpr (Node root Nil _) = root
 printExpr (Node root left right) = 
-	 root ++ "(" ++ printExpr left ++ ") (" 
-	 ++ printExpr right ++ ")" 
+     root ++ "(" ++ printExpr left ++ ") (" 
+     ++ printExpr right ++ ")" 
 -- (), [] for left, right 
 
 -- human-readable printing for debugging
@@ -72,8 +72,8 @@ debugPrintHelper (Node root left right)
     = root : (printSubtree left right)
         where 
             printSubtree left right =
-            	((pad "+- " "|  ") (debugPrintHelper right))
-            	    ++ ((pad "`- " "   ") (debugPrintHelper left))
+                ((pad "+- " "|  ") (debugPrintHelper right))
+                    ++ ((pad "`- " "   ") (debugPrintHelper left))
 
             pad first rest = zipWith (++) (first : repeat rest)
 debugPrintHelper Nil = [] 
@@ -88,10 +88,10 @@ debugPrintHelper Nil = []
 root :: String -> String
 root "" = ""
 root input = 
-	if first == "(" 
-		then ""
-		else first Prelude.++ (root (tail input))
-	where first = take 1 input
+    if first == "(" 
+        then ""
+        else first Prelude.++ (root (tail input))
+    where first = take 1 input
 
 
 -- function that nabs first subtree i.e. the stuff between the parens
@@ -100,7 +100,7 @@ subtree :: String -> String
 subtree "()" = ""
 subtree "" = " "
 subtree (s:cs) = -- hunt for the first left paren
-	if s == '(' then subtreeHelper cs 1 else subtree cs
+    if s == '(' then subtreeHelper cs 1 else subtree cs
 
 
 -- get left subtree
@@ -110,25 +110,25 @@ leftSubtree s = init $ subtree s
 -- get right subtree
 rightSubtree :: String -> String
 rightSubtree s = -- chop off root and left subtree and eat the rest
-	init $ subtree $ take (length s) $ drop (length extra) s
-	where extra = (root s) ++ (leftSubtree s)
+    init $ subtree $ take (length s) $ drop (length extra) s
+    where extra = (root s) ++ (leftSubtree s)
 
 subtreeHelper :: String -> Int -> String
 subtreeHelper input numLeft = -- figure out how to combine recursive case
-	if s == ")" then 
-		if (numLeft - 1) == 0 then ")"
-		else s Prelude.++ (subtreeHelper (tail input) (numLeft-1))
-	else if s == "(" 
-		then s Prelude.++ (subtreeHelper (tail input) (numLeft+1)) 
-		else s Prelude.++ (subtreeHelper (tail input) numLeft) 
-	where s = take 1 input 
+    if s == ")" then 
+        if (numLeft - 1) == 0 then ")"
+        else s Prelude.++ (subtreeHelper (tail input) (numLeft-1))
+    else if s == "(" 
+        then s Prelude.++ (subtreeHelper (tail input) (numLeft+1)) 
+        else s Prelude.++ (subtreeHelper (tail input) numLeft) 
+    where s = take 1 input 
 
 
 -- main func from String -> AST
 parseExpr :: String -> AST String
 parseExpr "" = Nil
 parseExpr s = 
-	(Node (root s) (parseExpr (leftSubtree s)) (parseExpr (rightSubtree s)))
+    (Node (root s) (parseExpr (leftSubtree s)) (parseExpr (rightSubtree s)))
 
 
 -- need to fix printExpr so that printExpr . parseExpr x = x !!!!!
@@ -139,7 +139,40 @@ parseExpr s =
 -- i.e. AST String -> Int
 -------------------------------------------------------------------------------
 
+-- expr := expr addop term | term
+-- expr := term mulop factor | factor
+-- factor := digit | expr
+-- digit := 0 | 1 | ... | 9
+-- addop := + | -
+-- mulop := * | /
 
+-- highest level function that handles logic for is this a term or expression
+-- i.e. handles order of operations 
+
+-- let addopList = ["+", "-"]
+-- let mulopList = ["*", "/"]
+
+evalTree :: AST String -> Int
+evalTree (Node n Nil Nil) = read n
+evalTree (Node n left right)
+    -- | left == Nil && right == Nil = read n -- tree is just a number at root
+    | n `elem` ["+", "-"] = evalExpr (Node n left right)
+    | n `elem` ["*", "/"] = evalTerm (Node n left right)
+    | otherwise = 0 -- invalid op
+
+-- lower level function that handles +/- expressions 
+evalExpr :: AST String -> Int
+evalExpr (Node op left right)
+    | op == "+" = (evalTree left) + (evalTree right)
+    | op == "-" = (evalTree left) - (evalTree right)
+    | otherwise = 0 -- invalid op
+
+-- lower level function that handles * / terms 
+evalTerm :: AST String -> Int
+evalTerm (Node op left right)
+    | op == "*" = (evalTree left) * (evalTree right)
+    | op == "/" = (evalTree left) `div` (evalTree right) -- handle divide by zero
+    | otherwise = 0 -- invalid op
 
 
 
