@@ -165,7 +165,50 @@ apply p = parse (do {space; p})
 
 -- 5. consume chars until first occurence of char
 -- char_search :: char -> Parser b -> Parser [a]
-newline_search = do {a <- item; result <- char '\n'; return result}
+newline_search = do {a <- item; result <- symb "\n"; return result}
+
+-----------------------------------------------------------
+-- part 2 of parser
+
+type SourceName = String
+
+-- @todo implement these
+
+-- chainr :: Parser a -> Parser (a -> a -> a) -> a -> Parser a
+-- -- Right chaining of 0 or more terms. Look at chainl.
+-- chainr1 :: Parser a -> Parser (a -> a -> a) -> Parser a
+-- -- Right chaining of 1 or more terms. Look at chainl1.
+-- symbol :: Parser Char
+-- -- Parse out any single symbol character. (look in Data.Char for help figuring out what a symbol is.) 
+-- oneOf :: string -> Parser Char
+-- noneOf :: string -> Parser Char
+-- skip :: Parser a -> Parser ()
+-- skipMany :: Parser a -> Parser ()
+-- skipMany1 :: Parser a -> Parser ()
+-- space :: Parser Char
+-- spaces :: Parser String
+-- try :: Parser a -> Parser a
+-- endBy :: Parser a -> Parser b -> Parser [a]
+-- parse :: Parser a -> SourceName -> String -> Either () a
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

@@ -57,8 +57,8 @@ printExpr :: AST String -> String
 printExpr (Node root _ Nil) = root
 printExpr (Node root Nil _) = root
 printExpr (Node root left right) = 
-     root ++ "(" ++ printExpr left ++ ") (" 
-     ++ printExpr right ++ ")" 
+     "(" ++ printExpr left ++ " " ++ root 
+     ++ " " ++ printExpr right ++ ")" 
 -- (), [] for left, right 
 
 -- human-readable printing for debugging
@@ -149,14 +149,17 @@ parseExpr s =
 -- highest level function that handles logic for is this a term or expression
 -- i.e. handles order of operations 
 
--- let addopList = ["+", "-"]
--- let mulopList = ["*", "/"]
+
+-- @TODO let it work when you have spaces!!!
+-- i.e. + (2 4) errors since the root node is Node "+ " with an extra space
+-- @TODO handle divide by zero
 
 evalTree :: AST String -> Int
 evalTree (Node n Nil Nil) = read n
 evalTree (Node n left right)
     -- | left == Nil && right == Nil = read n -- tree is just a number at root
     | n `elem` ["+", "-"] = evalExpr (Node n left right)
+    -- | (isInfixOf "+" n) || (isInfixOf "-" n)
     | n `elem` ["*", "/"] = evalTerm (Node n left right)
     | otherwise = 0 -- invalid op
 
