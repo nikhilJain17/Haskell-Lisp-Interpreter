@@ -83,9 +83,29 @@ debugPrintHelper Nil = []
 -- 3. Parse input expression to AST
 -- i.e. String -> AST String
 -------------------------------------------------------------------------------
--- parseExpr :: String -> AST String
--- -- parseExpr (c:cs) =
--- --     | scanParen =     
+parseExpr :: String -> AST String
+parseExpr input
+    -- order of ops: look for parenthesis
+    | scanParen input = Node parenRoot (parseExpr parenLeftNode) (parseExpr parenRightNode)
+    -- next, look for addops
+    | scanAddop input = Node addopRoot (parseExpr addopLeftNode) (parseExpr addopRightNode) 
+    -- then, look for mulops
+    | scanMulop input = Node mulopRoot (parseExpr mulopLeftNode) (parseExpr mulopRightNode)
+    -- finally, check if they are numbers???   
+    | otherwise = Node input Nil Nil
+        where 
+            addopRoot = (splitAddop input)!!0    
+            parenRoot = (splitParen input)!!0    
+            mulopRoot = (splitMulop input )!!0   
+            addopLeftNode = (splitAddop input)!!1    
+            parenLeftNode = (splitParen input)!!1    
+            mulopLeftNode = (splitMulop input )!!1
+            addopRightNode = (splitAddop input)!!2    
+            parenRightNode = (splitParen input)!!2    
+            mulopRightNode = (splitMulop input )!!2   
+
+
+
 
 
 -- given an input expression, return if it has parenthesis
@@ -105,7 +125,13 @@ splitParenHelper (c:cs) leftStr parenCount
     | parenCount == 0 && c `elem` ['+', '-', '*', '/'] = [[c], leftStr, cs] -- outer paren, found op, done 
     | c == '(' = splitParenHelper cs (leftStr ++ [c]) (parenCount + 1) -- left paren
     | c == ')' = splitParenHelper cs (leftStr ++ [c]) (parenCount - 1) -- right paren
+    -- (expr) case, i.e. full expression enclosed in parens
+    | null (c:cs) = splitParen (removeParen leftStr)
     | otherwise = splitParenHelper cs (leftStr ++ [c]) parenCount -- no paren or outer op
+
+-- remove first and last paren from string
+removeParen :: String -> String
+removeParen str = tail (init str)
 
 -- given an input expression, return if it has mulops
 scanMulop :: String -> Bool
@@ -121,6 +147,21 @@ splitMulopHelper :: String -> String -> [] String
 splitMulopHelper (c:cs) leftStr
     | (c == '*') || (c == '/') = [[c], leftStr, cs]
     | otherwise = splitMulopHelper cs (leftStr ++ [c])
+
+-- given an input expression, return if it has addops
+scanAddop :: String -> Bool
+scanAddop s = (isInfixOf "+" s) || ((isInfixOf "-" s))
+
+-- split by addop, no precedence rules needed
+splitAddop :: String -> [] String
+splitAddop s = splitAddopHelper s ""
+
+splitAddopHelper :: String -> String -> [] String
+splitAddopHelper (c:cs) leftStr
+    | (c == '+') || (c == '-') = [[c], leftStr, cs]
+    | otherwise = splitAddopHelper cs (leftStr ++ [c])
+
+
 
 ------------------------------------------------------------------------------
 -- 4. Evaluate an AST of expressions
