@@ -3,6 +3,7 @@ module Main where
 import Lib
 import Parsing
 import Data.Char
+import Data.List
 
 main :: IO ()
 main = putStrLn "use ghci"
@@ -59,7 +60,6 @@ printExpr (Node root Nil _) = root
 printExpr (Node root left right) = 
      "(" ++ printExpr left ++ " " ++ root 
      ++ " " ++ printExpr right ++ ")" 
--- (), [] for left, right 
 
 -- human-readable printing for debugging
 -- https://stackoverflow.com/questions/12556469/nicely-printing-showing-a-binary-tree-in-haskell
@@ -79,8 +79,89 @@ debugPrintHelper (Node root left right)
 debugPrintHelper Nil = [] 
 
 
+------------------------------------------------------------------------------
+-- 3. Parse input expression to AST
+-- i.e. String -> AST String
+-------------------------------------------------------------------------------
+-- parseExpr :: String -> AST String
+-- -- parseExpr (c:cs) =
+-- --     | scanParen =     
+
+
+-- given an input expression, return if it has parenthesis
+scanParen :: String -> Bool
+scanParen s = isInfixOf "(" s 
+
+-- given a VALID parenthesized input expression, split at outermost op
+-- i.e. "(3 * 4) + (2 - 4)" => ["+", "(3 * 4)", "(2 - 4)"]
+-- splitParen :: String -> [] String
+
+-- given an input expression, return if it has mulops
+scanMulop :: String -> Bool
+scanMulop s = (isInfixOf "*" s) || ((isInfixOf "/" s))
+
+-- given a non-parenthesized input expr, split at multiplication ops
+-- i.e. "3 * 4 + 2" => ["*", "3", "4 + 2"]
+splitMulop :: String -> [] String
+splitMulop s = splitMulopHelper s ""
+
+-- leftStr is accumulation of LHS of op
+splitMulopHelper :: String -> String -> [] String
+splitMulopHelper (c:cs) leftStr
+    | (c == '*') || (c == '/') = [[c], leftStr, cs]
+    | otherwise = splitMulopHelper cs (leftStr ++ [c])
+
+------------------------------------------------------------------------------
+-- 4. Evaluate an AST of expressions
+-- i.e. AST String -> Int
+-------------------------------------------------------------------------------
+
+-- expr := expr addop term | term
+-- expr := term mulop factor | factor
+-- factor := digit | expr
+-- digit := 0 | 1 | ... | 9
+-- addop := + | -
+-- mulop := * | /
+
+-- highest level function that handles logic for is this a term or expression
+-- i.e. handles order of operations 
+
+
+-- @TODO let it work when you have spaces!!!
+-- i.e. + (2 4) errors since the root node is Node "+ " with an extra space
+-- @TODO handle divide by zero
+
+evalTree :: AST String -> Int
+evalTree (Node n Nil Nil) = read n
+evalTree (Node n left right)
+    -- | left == Nil && right == Nil = read n -- tree is just a number at root
+    | n `elem` ["+", "-"] = evalExpr (Node n left right)
+    -- | (isInfixOf "+" n) || (isInfixOf "-" n)
+    | n `elem` ["*", "/"] = evalTerm (Node n left right)
+    | otherwise = 0 -- invalid op
+
+-- lower level function that handles +/- expressions 
+evalExpr :: AST String -> Int
+evalExpr (Node op left right)
+    | op == "+" = (evalTree left) + (evalTree right)
+    | op == "-" = (evalTree left) - (evalTree right)
+    | otherwise = 0 -- invalid op
+
+-- lower level function that handles * / terms 
+evalTerm :: AST String -> Int
+evalTerm (Node op left right)
+    | op == "*" = (evalTree left) * (evalTree right)
+    | op == "/" = (evalTree left) `div` (evalTree right) -- handle divide by zero
+    | otherwise = 0 -- invalid op
+
+
 -----------------------------------------------------------------------------
--- 3. This code takes in printed tree (String) and makes AST 
+-- ***[DEPRECATED]***
+-- Note: this code goes from String version of AST to AST
+-- Does not go from human-readable input to AST!
+-- This was the old parseExpr.
+-- ****************** 
+-- This code takes in printed tree (String) and makes AST 
 -- "1 (2 ( 3 4 5) 4)" -> [printExpr] -> AST
 ----------------------------------------------------------------------------
 
@@ -125,57 +206,10 @@ subtreeHelper input numLeft = -- figure out how to combine recursive case
 
 
 -- main func from String -> AST
-parseExpr :: String -> AST String
-parseExpr "" = Nil
-parseExpr s = 
-    (Node (root s) (parseExpr (leftSubtree s)) (parseExpr (rightSubtree s)))
-
-
--- need to fix printExpr so that printExpr . parseExpr x = x !!!!!
-
-
-------------------------------------------------------------------------------
--- 4. Evaluate an AST of expressions
--- i.e. AST String -> Int
--------------------------------------------------------------------------------
-
--- expr := expr addop term | term
--- expr := term mulop factor | factor
--- factor := digit | expr
--- digit := 0 | 1 | ... | 9
--- addop := + | -
--- mulop := * | /
-
--- highest level function that handles logic for is this a term or expression
--- i.e. handles order of operations 
-
-
--- @TODO let it work when you have spaces!!!
--- i.e. + (2 4) errors since the root node is Node "+ " with an extra space
--- @TODO handle divide by zero
-
-evalTree :: AST String -> Int
-evalTree (Node n Nil Nil) = read n
-evalTree (Node n left right)
-    -- | left == Nil && right == Nil = read n -- tree is just a number at root
-    | n `elem` ["+", "-"] = evalExpr (Node n left right)
-    -- | (isInfixOf "+" n) || (isInfixOf "-" n)
-    | n `elem` ["*", "/"] = evalTerm (Node n left right)
-    | otherwise = 0 -- invalid op
-
--- lower level function that handles +/- expressions 
-evalExpr :: AST String -> Int
-evalExpr (Node op left right)
-    | op == "+" = (evalTree left) + (evalTree right)
-    | op == "-" = (evalTree left) - (evalTree right)
-    | otherwise = 0 -- invalid op
-
--- lower level function that handles * / terms 
-evalTerm :: AST String -> Int
-evalTerm (Node op left right)
-    | op == "*" = (evalTree left) * (evalTree right)
-    | op == "/" = (evalTree left) `div` (evalTree right) -- handle divide by zero
-    | otherwise = 0 -- invalid op
+parseExpr' :: String -> AST String
+parseExpr' "" = Nil
+parseExpr' s = 
+    (Node (root s) (parseExpr' (leftSubtree s)) (parseExpr' (rightSubtree s)))
 
 
 
