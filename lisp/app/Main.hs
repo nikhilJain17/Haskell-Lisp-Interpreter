@@ -82,18 +82,22 @@ debugPrintHelper Nil = []
 ------------------------------------------------------------------------------
 -- 3. Parse input expression to AST
 -- i.e. String -> AST String
+-- This section's code is probably incomprehensible
 -------------------------------------------------------------------------------
 parseExpr :: String -> AST String
-parseExpr input
-    -- order of ops: look for parenthesis
+parseExpr expression
+    -- remove top level parens
+    -- | (head input == '(') && (last input == ')') = (parseExpr . removeParen) input
     | scanParen input = Node parenRoot (parseExpr parenLeftNode) (parseExpr parenRightNode)
-    -- next, look for addops
+    -- order of ops: look for addops
     | scanAddop input = Node addopRoot (parseExpr addopLeftNode) (parseExpr addopRightNode) 
     -- then, look for mulops
     | scanMulop input = Node mulopRoot (parseExpr mulopLeftNode) (parseExpr mulopRightNode)
+    -- next, look for parens
     -- finally, check if they are numbers???   
     | otherwise = Node input Nil Nil
         where 
+            -- yikes
             addopRoot = (splitAddop input)!!0    
             parenRoot = (splitParen input)!!0    
             mulopRoot = (splitMulop input )!!0   
@@ -102,11 +106,12 @@ parseExpr input
             mulopLeftNode = (splitMulop input )!!1
             addopRightNode = (splitAddop input)!!2    
             parenRightNode = (splitParen input)!!2    
-            mulopRightNode = (splitMulop input )!!2   
+            mulopRightNode = (splitMulop input )!!2  
+            input = removeWhitespace expression
+            -- input = expression
 
-
--- should probably remove spaces lmoa otherwise it don't work
-
+removeWhitespace :: String -> String
+removeWhitespace str = [c | c <- str, c /= ' ']
 
 -- given an input expression, return if it has parenthesis
 scanParen :: String -> Bool
@@ -114,14 +119,13 @@ scanParen s = isInfixOf "(" s
 
 -- given a VALID parenthesized input expression, split at outermost op
 -- i.e. "(3 * 4) + (2 - 4)" => ["+", "(3 * 4)", "(2 - 4)"]
-
--- @TODO HANDLE EDGE CASE
--- ((3 + 4) - 9)
 splitParen :: String -> [] String
 splitParen s = splitParenHelper s "" s 0
 
+-- this function is probably incomprehensible
 splitParenHelper :: String -> String -> String -> Int -> [] String
 splitParenHelper input leftStr originalInput parenCount 
+    -- | c == '(' && s == ')' = splitParen (removeParen originalInput)     -- (expr) case, i.e. full expression enclosed in parens
     | input == "" = splitParen (removeParen originalInput)
     | parenCount == 0 && [c] `isInfixOf` "+-*/" = [[c], leftStr, cs] -- outer paren, found op, done 
     | c == '(' = splitParenHelper cs (leftStr ++ [c]) originalInput (parenCount + 1) -- left paren
@@ -130,9 +134,7 @@ splitParenHelper input leftStr originalInput parenCount
     where
         c = head input
         cs = tail input
-    -- (expr) case, i.e. full expression enclosed in parens
-    -- | (c:cs) == [] = ["POOP", "POOP2", "POOP3"] --splitParen (removeParen leftStr)
-    -- | otherwise = splitParenHelper cs (leftStr ++ [c]) parenCount -- no paren or outer op
+        s = last input
 
 -- remove first and last paren from string
 removeParen :: String -> String
@@ -142,29 +144,39 @@ removeParen str = tail (init str)
 scanMulop :: String -> Bool
 scanMulop s = (isInfixOf "*" s) || ((isInfixOf "/" s))
 
--- given a non-parenthesized input expr, split at multiplication ops
+-- given a non-parenthesized input expr, split at first mulop NOT in parens
 -- i.e. "3 * 4 + 2" => ["*", "3", "4 + 2"]
 splitMulop :: String -> [] String
-splitMulop s = splitMulopHelper s ""
+splitMulop s = splitMulopHelper s "" 0
 
 -- leftStr is accumulation of LHS of op
-splitMulopHelper :: String -> String -> [] String
-splitMulopHelper (c:cs) leftStr
-    | (c == '*') || (c == '/') = [[c], leftStr, cs]
-    | otherwise = splitMulopHelper cs (leftStr ++ [c])
+splitMulopHelper :: String -> String -> Int -> [] String
+splitMulopHelper (c:cs) leftStr parenCounter
+    -- if you encounter a parenthesis, deal with it 
+    | c == '(' = splitMulopHelper cs (leftStr ++ [c]) (parenCounter + 1)
+    | c == ')' = splitMulopHelper cs (leftStr ++ [c]) (parenCounter - 1)
+    -- ony then consider if you have a valid op to split upon
+    | ((c == '*') || (c == '/')) && parenCounter == 0 = [[c], leftStr, cs]
+    -- non-op and non-paren, doesn't matter
+    | otherwise = splitMulopHelper cs (leftStr ++ [c]) parenCounter
 
 -- given an input expression, return if it has addops
 scanAddop :: String -> Bool
 scanAddop s = (isInfixOf "+" s) || ((isInfixOf "-" s))
 
--- split by addop, no precedence rules needed
+-- split by first addop NOT in parens
 splitAddop :: String -> [] String
-splitAddop s = splitAddopHelper s ""
+splitAddop s = splitAddopHelper s "" 0
 
-splitAddopHelper :: String -> String -> [] String
-splitAddopHelper (c:cs) leftStr
-    | (c == '+') || (c == '-') = [[c], leftStr, cs]
-    | otherwise = splitAddopHelper cs (leftStr ++ [c])
+splitAddopHelper :: String -> String -> Int -> [] String
+splitAddopHelper (c:cs) leftStr parenCounter
+    -- if you encounter a parenthesis, deal with it 
+    | c == '(' = splitAddopHelper cs (leftStr ++ [c]) (parenCounter + 1)
+    | c == ')' = splitAddopHelper cs (leftStr ++ [c]) (parenCounter - 1)
+    -- ony then consider if you have a valid op to split upon
+    | ((c == '+') || (c == '-')) && parenCounter == 0 = [[c], leftStr, cs]
+    -- non-op and non-paren, doesn't matter
+    | otherwise = splitAddopHelper cs (leftStr ++ [c]) parenCounter
 
 
 
