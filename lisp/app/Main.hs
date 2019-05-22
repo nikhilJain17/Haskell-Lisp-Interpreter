@@ -105,7 +105,7 @@ parseExpr input
             mulopRightNode = (splitMulop input )!!2   
 
 
-
+-- should probably remove spaces lmoa otherwise it don't work
 
 
 -- given an input expression, return if it has parenthesis
@@ -118,16 +118,21 @@ scanParen s = isInfixOf "(" s
 -- @TODO HANDLE EDGE CASE
 -- ((3 + 4) - 9)
 splitParen :: String -> [] String
-splitParen s = splitParenHelper s "" 0
+splitParen s = splitParenHelper s "" s 0
 
-splitParenHelper :: String -> String -> Int -> [] String
-splitParenHelper (c:cs) leftStr parenCount 
-    | parenCount == 0 && c `elem` ['+', '-', '*', '/'] = [[c], leftStr, cs] -- outer paren, found op, done 
-    | c == '(' = splitParenHelper cs (leftStr ++ [c]) (parenCount + 1) -- left paren
-    | c == ')' = splitParenHelper cs (leftStr ++ [c]) (parenCount - 1) -- right paren
+splitParenHelper :: String -> String -> String -> Int -> [] String
+splitParenHelper input leftStr originalInput parenCount 
+    | input == "" = splitParen (removeParen originalInput)
+    | parenCount == 0 && [c] `isInfixOf` "+-*/" = [[c], leftStr, cs] -- outer paren, found op, done 
+    | c == '(' = splitParenHelper cs (leftStr ++ [c]) originalInput (parenCount + 1) -- left paren
+    | c == ')' = splitParenHelper cs (leftStr ++ [c]) originalInput (parenCount - 1) -- right paren
+    | otherwise = splitParenHelper cs (leftStr ++ [c]) originalInput parenCount -- no paren or outer op
+    where
+        c = head input
+        cs = tail input
     -- (expr) case, i.e. full expression enclosed in parens
-    | null (c:cs) = splitParen (removeParen leftStr)
-    | otherwise = splitParenHelper cs (leftStr ++ [c]) parenCount -- no paren or outer op
+    -- | (c:cs) == [] = ["POOP", "POOP2", "POOP3"] --splitParen (removeParen leftStr)
+    -- | otherwise = splitParenHelper cs (leftStr ++ [c]) parenCount -- no paren or outer op
 
 -- remove first and last paren from string
 removeParen :: String -> String
