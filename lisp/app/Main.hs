@@ -94,7 +94,18 @@ scanParen s = isInfixOf "(" s
 
 -- given a VALID parenthesized input expression, split at outermost op
 -- i.e. "(3 * 4) + (2 - 4)" => ["+", "(3 * 4)", "(2 - 4)"]
--- splitParen :: String -> [] String
+
+-- @TODO HANDLE EDGE CASE
+-- ((3 + 4) - 9)
+splitParen :: String -> [] String
+splitParen s = splitParenHelper s "" 0
+
+splitParenHelper :: String -> String -> Int -> [] String
+splitParenHelper (c:cs) leftStr parenCount 
+    | parenCount == 0 && c `elem` ['+', '-', '*', '/'] = [[c], leftStr, cs] -- outer paren, found op, done 
+    | c == '(' = splitParenHelper cs (leftStr ++ [c]) (parenCount + 1) -- left paren
+    | c == ')' = splitParenHelper cs (leftStr ++ [c]) (parenCount - 1) -- right paren
+    | otherwise = splitParenHelper cs (leftStr ++ [c]) parenCount -- no paren or outer op
 
 -- given an input expression, return if it has mulops
 scanMulop :: String -> Bool
