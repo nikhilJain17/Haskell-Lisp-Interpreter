@@ -14,9 +14,14 @@ apply,
 (+++),
 token,
 isSpace,
+symbol,
+oneOf
 --isDigit
-newline_search
-) where
+-- newline_search
+) 
+where
+
+import Data.Char
 -- http://www.cs.nott.ac.uk/~pszgmh/pearl.pdf
 
 -- define a parameterized parser type
@@ -126,8 +131,7 @@ p `chainl1` op = do {a <- p; rest a}
                 where 
                     rest a = (do f <- op
                                  b <- p
-                                 rest (f a b))
-                             +++ return a
+                                 rest (f a b)) +++ return a
 
 
 -- no need to have lexical phase (string -> seq of tokens)
@@ -137,12 +141,12 @@ p `chainl1` op = do {a <- p; rest a}
 space :: Parser String
 space = many (sat isSpace)
 
-isSpace :: Char -> Bool
-isSpace s
-    | s == ' ' = True
-    | s == '\t' = True
-    | s == '\n' = True
-    | otherwise = False
+-- isSpace :: Char -> Bool
+-- isSpace s
+--     | s == ' ' = True
+--     | s == '\t' = True
+--     | s == '\n' = True
+--     | otherwise = False
 
 isDigit :: Char -> Bool
 isDigit d = elem d ['0','1','2','3','4','5','6','7','8','9']
@@ -178,9 +182,21 @@ type SourceName = String
 -- -- Right chaining of 0 or more terms. Look at chainl.
 -- chainr1 :: Parser a -> Parser (a -> a -> a) -> Parser a
 -- -- Right chaining of 1 or more terms. Look at chainl1.
--- symbol :: Parser Char
--- -- Parse out any single symbol character. (look in Data.Char for help figuring out what a symbol is.) 
--- oneOf :: string -> Parser Char
+
+-- Def:     Parse out any single symbol character (defined in Data.Char) 
+-- Works:   Just use sat with the appropriate predicate
+-- Ex:      apply symbol "=3" = [('=', "3")]
+symbol :: Parser Char
+symbol = sat Data.Char.isSymbol
+
+-- Def:     Succeeds if current char is in input string
+-- Works:   Use char parsers for all chars in string in parallel, and pick result with +++.
+-- Ex:      apply (oneOf "aeiou") "if" = [('i',"f")]
+--          apply (many (oneOf "aeiou")) "ouch" = [("ou","ch")]
+oneOf :: String -> Parser Char
+oneOf str = foldr (+++) (char ' ') [char c | c <- str]
+
+
 -- noneOf :: string -> Parser Char
 -- skip :: Parser a -> Parser ()
 -- skipMany :: Parser a -> Parser ()

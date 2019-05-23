@@ -201,9 +201,8 @@ splitAddopHelper (c:cs) leftStr parenCounter
 -- @TODO handle divide by zero
 
 evalTree :: AST String -> Int
-evalTree (Node n Nil Nil) = read n
+evalTree (Node n Nil Nil) = read n -- tree is leaf of a single num
 evalTree (Node n left right)
-    -- | left == Nil && right == Nil = read n -- tree is just a number at root
     | n `elem` ["+", "-"] = evalExpr (Node n left right)
     -- | (isInfixOf "+" n) || (isInfixOf "-" n)
     | n `elem` ["*", "/"] = evalTerm (Node n left right)
