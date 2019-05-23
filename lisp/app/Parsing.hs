@@ -17,6 +17,8 @@ isSpace,
 symbol,
 oneOf,
 noneOf,
+space',
+spaces,
 parse
 --isDigit
 -- newline_search
@@ -221,9 +223,24 @@ p &&& q = Parser (\cs -> if (length (parse p cs) /= 0 ||
 -- skip :: Parser a -> Parser ()
 -- skipMany :: Parser a -> Parser ()
 -- skipMany1 :: Parser a -> Parser ()
--- space :: Parser Char
--- spaces :: Parser String
--- try :: Parser a -> Parser a
+
+-- Def: Parse a single whitespace character 
+-- Note: space is already defined!!!
+space' :: Parser Char
+space' = sat isSpace
+
+-- Def: Parse zero or more whitespace characters
+spaces :: Parser String
+spaces = many (sat isSpace)
+
+-- Def: Parse input, but if there's an error, don't consume any characters
+-- @TODO what's the result value for the error case???
+try :: Parser a -> Parser a
+try p = Parser (\cs -> if (parse p cs) == [] --error!
+                            then (parse item (" " Prelude.++ cs)) --item consumes the " "
+                       else parse p cs)
+        -- where 
+        --     emptyParser = Parser (\cs -> [(cs)])
 -- endBy :: Parser a -> Parser b -> Parser [a]
 -- parse :: Parser a -> SourceName -> String -> Either () a
 
