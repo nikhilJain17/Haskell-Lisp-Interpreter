@@ -15,7 +15,9 @@ apply,
 token,
 isSpace,
 symbol,
-oneOf
+oneOf,
+noneOf,
+parse
 --isDigit
 -- newline_search
 ) 
@@ -75,15 +77,16 @@ class MonadZero m => MonadPlus m where
 instance MonadZero Parser where
     zero = Parser (\cs -> [])
 
--- -- can combine parsers! apply both parsers p and q
+-- can combine parsers! apply both parsers p and q
 instance MonadPlus Parser where
     p ++ q = Parser (\cs -> (parse p cs) Prelude.++ (parse q cs))
 
--- define deterministic ++, where we just take first result
+-- define deterministic ++, where we just take first success
 (+++) :: Parser a -> Parser a -> Parser a
 p +++ q = Parser (\cs -> case parse (p Parsing.++ q) cs of 
                         [] -> []
                         (x:xs) -> [x])
+
 
 -- parser that conditionally consumes characters if they satisfy a predicate
 sat :: (Char -> Bool) -> Parser Char
@@ -194,10 +197,27 @@ symbol = sat Data.Char.isSymbol
 -- Ex:      apply (oneOf "aeiou") "if" = [('i',"f")]
 --          apply (many (oneOf "aeiou")) "ouch" = [("ou","ch")]
 oneOf :: String -> Parser Char
-oneOf str = foldr (+++) (char ' ') [char c | c <- str]
+oneOf str = foldr (+++) zero [char c | c <- str]
+-- note that the 'zero' element is defined in MonadZero
+-- oneOf uses the "or" operator for lists-return any success since there will only be 1
+
+noneOf :: String -> Parser Char
+noneOf str = Parser (\(c:cs) -> case (c `elem` str) of
+                           True -> []
+                           False -> [(c, cs)])
+-- Note: A possible implementation of noneOf using similar ideas as oneOf is possible.
+-- noneOf str = foldr (&&&) item [sat (c /=) | c <- str]
+-- Here, noneOf uses the "and" operator for lists-return any failure, since there will only be 1
+-- see defn of "&&&" below
+-- we only want p &&& q to return a result if both p and q return results
+(&&&) :: Parser a -> Parser a -> Parser a
+--             Unfortunately, this bool condition is broken
+p &&& q = Parser (\cs -> if (length (parse p cs) /= 0 ||
+                             length (parse q cs) /= 0) 
+                        then []
+                        else parse (p +++ q) cs)
 
 
--- noneOf :: string -> Parser Char
 -- skip :: Parser a -> Parser ()
 -- skipMany :: Parser a -> Parser ()
 -- skipMany1 :: Parser a -> Parser ()
