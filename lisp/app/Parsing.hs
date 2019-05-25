@@ -19,7 +19,11 @@ oneOf,
 noneOf,
 space',
 spaces,
-parse
+parse,
+try,
+endBy,
+skip,
+skipMany
 --isDigit
 -- newline_search
 ) 
@@ -220,9 +224,17 @@ p &&& q = Parser (\cs -> if (length (parse p cs) /= 0 ||
                         else parse (p +++ q) cs)
 
 
--- skip :: Parser a -> Parser ()
--- skipMany :: Parser a -> Parser ()
--- skipMany1 :: Parser a -> Parser ()
+-- Def: apply parser p, ignore result 
+skip :: Parser a -> Parser ()
+skip p = do {p; return ()}
+
+-- Def: apply parser p zero or more times, ignore result
+skipMany :: Parser a -> Parser ()
+skipMany p = (skipMany1 p) +++ return ()
+
+-- Def: apply parser p one or more times, ignore result
+skipMany1 :: Parser a -> Parser ()
+skipMany1 p = do {result <- (skip p); (skipMany p)}
 
 -- Def: Parse a single whitespace character 
 -- Note: space is already defined!!!
@@ -235,14 +247,24 @@ spaces = many (sat isSpace)
 
 -- Def: Parse input, but if there's an error, don't consume any characters
 -- @TODO what's the result value for the error case???
+-- bottom = bottom
 try :: Parser a -> Parser a
-try p = Parser (\cs -> if (parse p cs) == [] --error!
-                            then (parse item (" " Prelude.++ cs)) --item consumes the " "
-                       else parse p cs)
-        -- where 
+try p = Parser (\cs -> if length (parse p cs) == 0 --error!
+                            then [(undefined, cs)]
+                       else parse p cs
+                )
+
         --     emptyParser = Parser (\cs -> [(cs)])
--- endBy :: Parser a -> Parser b -> Parser [a]
--- parse :: Parser a -> SourceName -> String -> Either () a
+
+-- endBy p sep parses zero or more occurrences of p, seperated and ended by sep. Returns a list of values returned by p.
+endBy :: Parser a -> Parser b -> Parser [a]
+endBy p sep = many (do {a <- p; sep; return a})
+
+-- parse' p filePath input runs a parser p over Identity without user state
+-- note there is already a func parse
+-- parse' :: Parser a -> SourceName -> String -> Either () a
+-- parse p _ s = 
+
 
 
 
