@@ -185,12 +185,16 @@ newline_search = do {a <- item; result <- symb "\n"; return result}
 
 type SourceName = String
 
--- @todo implement these
+-- Parse repeated applications of parser p, 
+-- separated by applications of parser op
+-- whose result value is an OPERATOR that is assoc to right
+-- and is used to combine results from the p parsers
+chainr :: Parser a -> Parser (a -> a -> a) -> a -> Parser a
+chainr p op a = undefined
 
--- chainr :: Parser a -> Parser (a -> a -> a) -> a -> Parser a
--- -- Right chaining of 0 or more terms. Look at chainl.
--- chainr1 :: Parser a -> Parser (a -> a -> a) -> Parser a
--- -- Right chaining of 1 or more terms. Look at chainl1.
+-- Right chaining of 1 or more terms. Look at chainl1.
+chainr1 :: Parser a -> Parser (a -> a -> a) -> Parser a
+chainr1 p op = undefined
 
 -- Def:     Parse out any single symbol character (defined in Data.Char) 
 -- Works:   Just use sat with the appropriate predicate
@@ -250,20 +254,20 @@ spaces = many (sat isSpace)
 -- bottom = bottom
 try :: Parser a -> Parser a
 try p = Parser (\cs -> if length (parse p cs) == 0 --error!
-                            then [(undefined, cs)]
+                            then [(undefined, cs)] -- what to return...
                        else parse p cs
                 )
 
         --     emptyParser = Parser (\cs -> [(cs)])
 
--- endBy p sep parses zero or more occurrences of p, seperated and ended by sep. Returns a list of values returned by p.
+-- endBy p sep parses zero or more occurrences of p, separated and ended by sep. Returns a list of values returned by p.
 endBy :: Parser a -> Parser b -> Parser [a]
 endBy p sep = many (do {a <- p; sep; return a})
 
 -- parse' p filePath input runs a parser p over Identity without user state
 -- note there is already a func parse
--- parse' :: Parser a -> SourceName -> String -> Either () a
--- parse p _ s = 
+parse' :: Parser a -> SourceName -> String -> Either () a
+parse' p _ s = undefined 
 
 
 
