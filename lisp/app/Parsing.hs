@@ -200,6 +200,7 @@ chainr p op a = (chainr1 p op) +++ return a
 --          here, left operands are allowed to be integers
 --          right operands are either expressions or integers 
 -- Works:   Get left operand a, get op, recurse on right subexpr, combine results 
+-- https://www.seas.upenn.edu/~cis552/15fa/lectures/Parsers.html
 chainr1 :: Parser a -> Parser (a -> a -> a) -> Parser a
 chainr1 p op = do {a <- p; rest a} -- get left integer, then parse right expr
             where 
@@ -207,20 +208,6 @@ chainr1 p op = do {a <- p; rest a} -- get left integer, then parse right expr
                             b <- chainr1 p op -- recurse to get right operand
                             return (f a b) -- eval the expr and keep going
                             +++ return a  -- base case: no more terms left, we are done
-
--- chainr1 p op = do {a <- p; rest a}
-  -- where rest x = do f <- op
-  --                   y <- chainr1 p op
-  --                   return (f x y) 
-  --                   +++ return x
-
-
--- chainr1 p op = do {a <- p; rest a}
---       where rest a = do f <- op
---                  b <- chainr1 p op
---                  return (f a b) +++ return a 
-
-
 
 ------------------------------------------------------------
 -- Testing for chainl, chainr
@@ -299,12 +286,11 @@ spaces = many (sat isSpace)
 -- @TODO what's the result value for the error case???
 -- bottom = bottom
 try :: Parser a -> Parser a
-try p = Parser (\cs -> if length (parse p cs) == 0 --error!
-                            then [(undefined, cs)] -- what to return...
-                       else parse p cs
-                )
-
-        --     emptyParser = Parser (\cs -> [(cs)])
+try p = p +++ return undefined -- what to return for error??
+-- try p = Parser (\cs -> if length (parse p cs) == 0 --error!
+--                             then [(undefined, cs)] -- what to return...
+--                        else parse p cs
+--                 )
 
 -- endBy p sep parses zero or more occurrences of p, separated and ended by sep. Returns a list of values returned by p.
 endBy :: Parser a -> Parser b -> Parser [a]
