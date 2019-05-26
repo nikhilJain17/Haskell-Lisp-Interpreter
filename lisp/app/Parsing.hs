@@ -23,7 +23,9 @@ parse,
 try,
 endBy,
 skip,
-skipMany
+skipMany,
+plusplus,
+chainr
 --isDigit
 -- newline_search
 ) 
@@ -189,12 +191,56 @@ type SourceName = String
 -- separated by applications of parser op
 -- whose result value is an OPERATOR that is assoc to right
 -- and is used to combine results from the p parsers
+-- 'a' (the value not the type var) is used to return a generic failure
 chainr :: Parser a -> Parser (a -> a -> a) -> a -> Parser a
-chainr p op a = undefined
+chainr p op a = (chainr1 p op) +++ return a
 
--- Right chaining of 1 or more terms. Look at chainl1.
+-- Def: Right chaining of 1 or more terms.
+-- Notes:   1 - (2 + (4 - 2))
+--          here, left operands are allowed to be integers
+--          right operands are either expressions or integers 
+-- Works:   Get left operand a, get op, recurse on right subexpr, combine results 
 chainr1 :: Parser a -> Parser (a -> a -> a) -> Parser a
-chainr1 p op = undefined
+chainr1 p op = do {a <- p; rest a} -- get left integer, then parse right expr
+            where 
+                rest a = do f <- op -- get op
+                            b <- chainr1 p op -- recurse to get right operand
+                            return (f a b) -- eval the expr and keep going
+                            +++ return a  -- base case: no more terms left, we are done
+
+-- chainr1 p op = do {a <- p; rest a}
+  -- where rest x = do f <- op
+  --                   y <- chainr1 p op
+  --                   return (f x y) 
+  --                   +++ return x
+
+
+-- chainr1 p op = do {a <- p; rest a}
+--       where rest a = do f <- op
+--                  b <- chainr1 p op
+--                  return (f a b) +++ return a 
+
+
+
+------------------------------------------------------------
+-- Testing for chainl, chainr
+-- > apply (chainl (string "a") (plusplus) ("default")) 
+-- "a~a~a~a~ab"[("a a a a a","b")]
+
+-- plusplus is an op parser which parses the '~' operator
+plusplus :: Parser (String -> String -> String)
+plusplus = Parser (\(c:cs) -> if c == '~' then [((+-+), cs)]
+                                else [])
+
+-- (+-+) is an op that swap/appends two strings with a space betw. them
+infixr 4 +-+
+(+-+) :: String -> String -> String
+"" +-+ s = s
+s +-+ "" = s
+s +-+ t | last s == ' ' = t Prelude.++ s
+        | head t == ' ' = t Prelude.++ s
+s +-+ t = t Prelude.++ " " Prelude.++ s
+------------------------------------------------------------
 
 -- Def:     Parse out any single symbol character (defined in Data.Char) 
 -- Works:   Just use sat with the appropriate predicate
