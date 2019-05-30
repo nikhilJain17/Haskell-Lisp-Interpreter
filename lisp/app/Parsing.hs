@@ -294,8 +294,11 @@ spaces = many (sat isSpace)
 -- Def: Parse input, but if there's an error, don't consume any characters
 -- @TODO what's the result value for the error case???
 -- bottom = bottom
+-- @FIXME !!!
 try :: Parser a -> Parser a
-try p = p +++ return undefined -- what to return for error??
+try p = Parser (\cs -> parse p cs)
+
+-- try p = p +++ return undefined -- what to return for error??
 -- try p = Parser (\cs -> if length (parse p cs) == 0 --error!
 --                             then [(undefined, cs)] -- what to return...
 --                        else parse p cs
@@ -305,6 +308,7 @@ try p = p +++ return undefined -- what to return for error??
 -- Returns a list of values returned by p.
 endBy :: Parser a -> Parser b -> Parser [a]
 endBy p sep = many (do {a <- p; sep; return a})
+
 
 -- parse' p filePath input runs a parser p over Identity without user state
 -- note there is already a func parse

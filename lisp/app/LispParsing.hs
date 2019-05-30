@@ -3,6 +3,9 @@ parseString,
 parseAtom,
 parseNumber,
 parseLispExpr,
+parseList,
+parseDottedList,
+parseQuoted,
 LispVal
 )
 
@@ -57,8 +60,18 @@ parseNumber = liftM (Number . read) $ many1 digit
 
 
 -- to parse Lisp exprs
+-- note that (+++) is the choice operator defined in Parsing.hs
 parseLispExpr :: Parser LispVal
-parseLispExpr = parseString +++ parseAtom +++ parseNumber
+parseLispExpr = parseString     -- self explanatory 
+            +++ parseAtom 
+            +++ parseNumber
+            +++ parseQuoted
+            +++ do              -- list: try both options of proper and improper list
+                char '('        -- 'try' lets us backtrack (doesn't consume input)
+                x <- (try parseList) +++ parseDottedList
+                char ')' -- note that try doesn't actually work!!!
+                return x
+
 
 
 -- to parse lisp lists
@@ -83,7 +96,7 @@ parseQuoted :: Parser LispVal
 parseQuoted = do
                 char '\'' -- get quote
                 a <- parseLispExpr
-                return (List [Atom "quote", x])
+                return (List [Atom "quote", a])
 
 
 
