@@ -1,6 +1,5 @@
 module Parsing (
 Parser,
-LispVal,
 item,
 sat,
 char,
@@ -28,16 +27,16 @@ skipMany,
 plusplus,
 chainr,
 parse',
-parseString,
 letter,
-parseAtom,
-parseNumber
+digit,
+many1
 --isDigit
 -- newline_search
 ) 
 where
 
 import Data.Char
+-- import Monad
 -- http://www.cs.nott.ac.uk/~pszgmh/pearl.pdf
 
 -- define a parameterized parser type
@@ -45,12 +44,6 @@ import Data.Char
 -- nonempty string indicates success
 newtype Parser a = Parser (String -> [(a, String)])
 
-data LispVal = Atom String 
-    | List [LispVal]
-    | DottedList [LispVal] LispVal
-    | Number Integer
-    | String String 
-    | Bool Bool
 
 -- simple parser that parses each character
 item :: Parser Char
@@ -320,43 +313,6 @@ parse' p _ s = if length (parse p s) == 0 then Left ()
 
 letter :: Parser Char
 letter = sat isAlpha 
-
-------------------------------------------------------------------------------
--- Lisp-specific parsing functions
--- Atom String := stores string naming the atom
--- List [LispVal] := stores a list of LispVals (proper list)
--- DottedList [LispVal] LispVal := (a b . c), an improper list
--- Number Integer := a number
--- String String := a string
--- Bool Bool := a boolean
-------------------------------------------------------------------------------
-
--- to parse Lisp strings
-parseString :: Parser LispVal
-parseString = do 
-                char '"'               -- find opening quote
-                x <- many (noneOf "\"") -- find rest of chars
-                char '"'                -- closing quote
-                return (String x)
-
--- to parse Lisp atoms
-parseAtom :: Parser LispVal
-parseAtom = do  first <- letter +++ symbol   -- first char in lispval can be letter or symbol
-                rest <- many (letter +++ digit +++ symbol) -- other chars can also be num
-                let atom = [first] Prelude.++ rest -- assemble the atom
-                return $ case atom of           -- is it a true/false?  
-                    "#t" -> Bool True           -- otherwise just return the val
-                    "#f" -> Bool False          
-                    otherwise -> Atom atom
-
-
--- to parse Lisp numbers
--- read this function right to left
--- many1 digit reads a string of digits
--- (Number . read) converts the string of digits into a number, then a LispVal
--- return lifts (Number . read) into a parser
-parseNumber :: Parser LispVal
-parseNumber = return (Number . read) $ many1 digit
 
 
 
