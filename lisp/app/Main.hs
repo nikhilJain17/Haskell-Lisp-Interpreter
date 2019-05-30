@@ -3,6 +3,7 @@ module Main where
 import Lib
 import Parsing
 import LispParsing
+import Evaluator
 import Data.Char
 import Data.List
 

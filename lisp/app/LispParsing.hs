@@ -6,7 +6,7 @@ parseLispExpr,
 parseList,
 parseDottedList,
 parseQuoted,
-LispVal
+LispVal(..)
 )
 
 where
