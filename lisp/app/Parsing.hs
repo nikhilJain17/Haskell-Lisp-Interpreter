@@ -1,5 +1,6 @@
 module Parsing (
 Parser,
+LispVal,
 item,
 sat,
 char,
@@ -25,7 +26,10 @@ endBy,
 skip,
 skipMany,
 plusplus,
-chainr
+chainr,
+parse',
+parseString,
+letter
 --isDigit
 -- newline_search
 ) 
@@ -38,6 +42,13 @@ import Data.Char
 -- it's a func that takes a str and returns list of results
 -- nonempty string indicates success
 newtype Parser a = Parser (String -> [(a, String)])
+
+data LispVal = Atom String 
+    | List [LispVal]
+    | DottedList [LispVal] LispVal
+    | Number Integer
+    | String String 
+    | Bool Bool
 
 -- simple parser that parses each character
 item :: Parser Char
@@ -249,7 +260,7 @@ noneOf str = Parser (\(c:cs) -> case (c `elem` str) of
                            True -> []
                            False -> [(c, cs)])
 -- Note: A possible implementation of noneOf using similar ideas as oneOf is possible.
--- noneOf str = foldr (&&&) item [sat (c /=) | c <- str]
+-- noneOf str = foldr (>>) item [sat (c /=) | c <- str]
 -- Here, noneOf uses the "and" operator for lists-return any failure, since there will only be 1
 -- see defn of "&&&" below
 -- we only want p &&& q to return a result if both p and q return results
@@ -299,11 +310,33 @@ endBy p sep = many (do {a <- p; sep; return a})
 -- parse' p filePath input runs a parser p over Identity without user state
 -- note there is already a func parse
 parse' :: Parser a -> SourceName -> String -> Either () a
-parse' p _ s = undefined 
+parse' p _ s = if length (parse p s) == 0 then Left ()
+                else Right (fst((apply p s)!!0)) 
 
+letter :: Parser Char
+letter = sat isAlpha 
 
+------------------------------------------------------------------------------
+-- Lisp-specific parsing functions
+-- Atom String := stores string naming the atom
+-- List [LispVal] := stores a list of LispVals (proper list)
+-- DottedList [LispVal] LispVal := (a b . c), an improper list
+-- Number Integer := a number
+-- String String := a string
+-- Bool Bool := a boolean
+------------------------------------------------------------------------------
 
+parseString :: Parser LispVal
+parseString = do 
+                char '"'               -- find opening quote
+                x <- many (noneOf "\"") -- find rest of chars
+                char '"'                -- closing quote
+                return (String x)
 
+-- parseAtom :: Parser LispVal
+-- parseAtom = do  first <- letter +++ symbol
+--                 rest <- many (letter +++ digit +++ symbol)
+--                 let atom = [first] Prelude.++ rest
 
 
 

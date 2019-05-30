@@ -8,6 +8,14 @@ import Data.List
 main :: IO ()
 main = putStrLn "use ghci"
 
+
+-- read an expression 
+readExpr :: String -> String
+readExpr input = case parse' symbol "lisp" input of
+    Left err -> "No match: " ++ show err
+    Right val -> "Found value"
+
+
 -- This is an example of parsers that parse math expr and evals their result.
 -- Here's the data types we are implicitly using.
 -- In other words, this is the way we model math exprs.
