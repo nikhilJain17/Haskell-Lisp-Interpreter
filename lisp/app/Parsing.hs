@@ -301,7 +301,8 @@ try p = p +++ return undefined -- what to return for error??
 --                        else parse p cs
 --                 )
 
--- endBy p sep parses zero or more occurrences of p, separated and ended by sep. Returns a list of values returned by p.
+-- endBy p sep parses zero or more occurrences of p, separated and ended by sep. 
+-- Returns a list of values returned by p.
 endBy :: Parser a -> Parser b -> Parser [a]
 endBy p sep = many (do {a <- p; sep; return a})
 

@@ -61,6 +61,32 @@ parseLispExpr :: Parser LispVal
 parseLispExpr = parseString +++ parseAtom +++ parseNumber
 
 
+-- to parse lisp lists
+-- (sepby parseExpr spaces) is a parser that ignores spaces and parses exprs
+-- liftM List (sepby parseExpr spaces) lifts List data constructor into a parser
+-- combinators are actually amazing look how easy this is
+parseList :: Parser LispVal
+parseList = liftM List (sepby parseLispExpr spaces)
+
+
+-- to parse improper lists (a b .c) i.e. [a | -> [b | c]]
+parseDottedList :: Parser LispVal
+parseDottedList = do
+                    head <- endBy parseLispExpr spaces -- get proper list
+                    tail <- char '.' >> spaces >> parseLispExpr -- throw out extra stuff, get tail
+                    return (DottedList head tail)
+
+-- to parse single quote in lisp
+-- i.e. `(expt 2 3) 
+-- note that quote expressions are evaluated as just data, not code
+parseQuoted :: Parser LispVal
+parseQuoted = do
+                char '\'' -- get quote
+                a <- parseLispExpr
+                return (List [Atom "quote", x])
+
+
+
 
 
 
