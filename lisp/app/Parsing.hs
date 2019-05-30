@@ -29,7 +29,9 @@ plusplus,
 chainr,
 parse',
 parseString,
-letter
+letter,
+parseAtom,
+parseNumber
 --isDigit
 -- newline_search
 ) 
@@ -172,6 +174,9 @@ space = many (sat isSpace)
 
 isDigit :: Char -> Bool
 isDigit d = elem d ['0','1','2','3','4','5','6','7','8','9']
+
+digit :: Parser Char
+digit = sat Parsing.isDigit
 
 -- 2. parse token using parser p, throw away trailing space
 token :: Parser a -> Parser a
@@ -326,6 +331,7 @@ letter = sat isAlpha
 -- Bool Bool := a boolean
 ------------------------------------------------------------------------------
 
+-- to parse Lisp strings
 parseString :: Parser LispVal
 parseString = do 
                 char '"'               -- find opening quote
@@ -333,12 +339,24 @@ parseString = do
                 char '"'                -- closing quote
                 return (String x)
 
--- parseAtom :: Parser LispVal
--- parseAtom = do  first <- letter +++ symbol
---                 rest <- many (letter +++ digit +++ symbol)
---                 let atom = [first] Prelude.++ rest
+-- to parse Lisp atoms
+parseAtom :: Parser LispVal
+parseAtom = do  first <- letter +++ symbol   -- first char in lispval can be letter or symbol
+                rest <- many (letter +++ digit +++ symbol) -- other chars can also be num
+                let atom = [first] Prelude.++ rest -- assemble the atom
+                return $ case atom of           -- is it a true/false?  
+                    "#t" -> Bool True           -- otherwise just return the val
+                    "#f" -> Bool False          
+                    otherwise -> Atom atom
 
 
+-- to parse Lisp numbers
+-- read this function right to left
+-- many1 digit reads a string of digits
+-- (Number . read) converts the string of digits into a number, then a LispVal
+-- return lifts (Number . read) into a parser
+parseNumber :: Parser LispVal
+parseNumber = return (Number . read) $ many1 digit
 
 
 
