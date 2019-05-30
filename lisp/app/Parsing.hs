@@ -242,7 +242,8 @@ s +-+ t = t Prelude.++ " " Prelude.++ s
 -- Works:   Just use sat with the appropriate predicate
 -- Ex:      apply symbol "=3" = [('=', "3")]
 symbol :: Parser Char
-symbol = sat Data.Char.isSymbol
+symbol = oneOf "!$%&|*+-/:<=?>@^_~"
+-- symbol = sat Data.Char.isSymbol
 
 -- Def:     Succeeds if current char is in input string
 -- Works:   Use char parsers for all chars in string in parallel, and pick result with +++.
