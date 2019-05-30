@@ -1,11 +1,11 @@
 module Evaluator (
-showVal
+eval
 )
 
 where
 
 import LispParsing
--- import Parsing
+
 -- data LispVal = Atom String 
 --     | List [LispVal]
 --     | DottedList [LispVal] LispVal
@@ -13,19 +13,19 @@ import LispParsing
 --     | String String 
 --     | Bool Bool
 
--- let there be a human-readable version of lispvals
-instance Show LispVal where show = showVal
 
-showVal :: LispVal -> String
-showVal (String s) = "\"" Prelude.++ s Prelude.++ "\""
-showVal (Atom name) = name
-showVal (Number num) = show num
-showVal (Bool True) = "#t"
-showVal (Bool False) = "#f"
-showVal (List l) = "(" Prelude.++ (unwordsList l) Prelude.++ ")"
-showVal (DottedList head tail) = "(" Prelude.++ (unwordsList head) 
-    Prelude.++ " . " Prelude.++ (showVal tail) Prelude.++ ")"
+-- This module is the evaluator.
+-- i.e. evaluator :: Code -> Data
+-- Lisp is nice because Code and Data are both the same data type.
+-- evaluator :: LispVal -> LispVal
 
--- convert a list of lispVals to a human-readable string
-unwordsList :: [LispVal] -> String 
-unwordsList = unwords . map showVal
+eval :: LispVal -> LispVal
+-------------------------
+-- PRIMITIVES
+-- These first few pattern matches are the most straightforward cases.
+-- The expressions here are just basic data, so we evaluate them as such.
+eval val@(String _) = val -- bind val to ANY lispval that is a string (i.e. atom, string)
+eval val@(Number _) = val -- same but for number
+eval val@(Bool _) = val
+eval (List [Atom "quote", val]) = val -- match for quoted expr (i.e. straight data)
+
