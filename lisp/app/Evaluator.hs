@@ -5,6 +5,12 @@ eval
 where
 
 import LispParsing
+import Control.Monad.Error
+
+-- This module is the evaluator.
+-- i.e. evaluator :: Code -> Data
+-- Lisp is nice because Code and Data are both the same data type.
+-- evaluator :: LispVal -> LispVal
 
 -- data LispVal = Atom String 
 --     | List [LispVal]
@@ -13,11 +19,6 @@ import LispParsing
 --     | String String 
 --     | Bool Bool
 
-
--- This module is the evaluator.
--- i.e. evaluator :: Code -> Data
--- Lisp is nice because Code and Data are both the same data type.
--- evaluator :: LispVal -> LispVal
 
 eval :: LispVal -> LispVal
 -------------------------
@@ -68,8 +69,48 @@ unpackNum (String s) = let parsed = reads s in
 unpackNum (List [n]) = unpackNum n -- one element list only
 unpackNum _ = 0
 
+-------------------------------------------------------------------
+-- Error Handling
+
+type SourceName = String
+type Line       = Int
+type Column     = Int
+
+-- represends source (filename), line, and column of things
+data SourcePos  = SourcePos SourceName !Line !Column
+    deriving ( Eq, Ord)
+
+data ParseError = ParseError !SourcePos [String]
 
 
+data LispError = NumArgs Integer [LispVal]
+                | TypeMismatch String LispVal
+                | Parser ParseError
+                | BadSpecialForm String LispVal
+                | NotFunction String String
+                | UnboundVar String String
+                | Default String
+
+instance Show SourcePos where
+  show (SourcePos name line column)
+    | null name = showLineColumn
+    | otherwise = "\"" ++ name ++ "\" " ++ showLineColumn
+    where
+      showLineColumn    = "(line " ++ show line ++
+                          ", column " ++ show column ++
+                          ")"
+
+instance Show LispError where show = showError
+
+showError :: LispError -> String
+showError (UnboundVar message varname) = message ++ ": " ++ varname
+showError (BadSpecialForm message form) = message ++ ": " ++ show form
+showError (NotFunction message func) = message ++ ": " ++ show func
+showError (NumArgs expected found) = "Expected: " ++ show expected
+                                ++ " args, found: " ++ show found                
+showError (TypeMismatch expected found) = "Type mismatch, expected: "
+                                ++ expected ++ ", found: " ++ show found         
+showError (Parser (ParseError sourcepos _)) = "Parse error at" ++ show sourcepos
 
 
 
