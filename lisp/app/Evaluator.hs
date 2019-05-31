@@ -55,13 +55,52 @@ applyFunc func args = maybe (throwError $ NotFunction "Unrecognized primitive fu
 
 -- dictionary of primitive operations
 primitives :: [(String, [LispVal] -> ThrowsError LispVal)]
-primitives = [("+", numericBinop (+)),
+primitives = [("+", numericBinop (+)), -- numeric ops
               ("-", numericBinop (-)),
               ("*", numericBinop (*)),
               ("/", numericBinop div),
               ("mod", numericBinop mod),
               ("quotient", numericBinop quot),
-              ("remainder", numericBinop rem)]
+              ("remainder", numericBinop rem),
+              ("=", numBoolBinop (==)), -- comparison ops for num
+              ("<", numBoolBinop (<)),
+              (">", numBoolBinop (>)),
+              ("/=", numBoolBinop (/=)),
+              (">=", numBoolBinop (>=)),
+              ("<=", numBoolBinop (<=)),
+              ("&&", boolBoolBinop (&&)), -- comparison ops for bools
+              ("||", boolBoolBinop (||)),
+              ("string=?", strBoolBinop (==)), -- comparison for str
+              ("string?", strBoolBinop (>)),
+              ("string<=?", strBoolBinop (<=)),
+              ("string>=?", strBoolBinop (>=))] 
+
+
+-- generic boolBinop function that is PARAMETERIZED by unpacker func
+-- i.e. the unpacker converts LispVals into native Haskell types
+boolBinop :: (LispVal -> ThrowsError a) -> (a -> a -> Bool) -> [LispVal] -> ThrowsError LispVal
+boolBinop unpacker op args = if length args /= 2 
+                                then throwError $ NumArgs 2 args
+                            else do -- note that either arg may throw TypeMismatch
+                                    left <- unpacker $ args !! 0
+                                    right <- unpacker $ args !! 1
+                                    return $ Bool $ left `op` right
+-- amazing
+numBoolBinop = boolBinop unpackNum
+strBoolBinop = boolBinop unpackStr
+boolBoolBinop = boolBinop unpackBool
+
+-- convert string-type lispval to haskell string
+unpackStr :: LispVal -> ThrowsError String
+unpackStr (String s) = return s
+unpackStr (Number s) = return $ show s
+unpackStr (Bool s) = return $ show s
+unpackStr notString = throwError $ TypeMismatch "string" notString 
+
+-- convert boolean lispval to haskell bool
+unpackBool :: LispVal -> ThrowsError Bool
+unpackBool (Bool b) = return b
+unpackBool notBool = throwError $ TypeMismatch "boolean" notBool
 
 -- map an operator to code
 -- (map unpackNum args) goes from [LispVal] to [Integer] (convert args to nums)
