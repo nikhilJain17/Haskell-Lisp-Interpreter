@@ -1,6 +1,8 @@
 module Evaluator (
-eval,
+evalLispExpr,
 throwError,
+extractValue,
+trapError,
 ParseError(..),
 ThrowsError,
 LispError(..),
@@ -12,6 +14,7 @@ where
 import Parsing
 import LispParsing
 import Control.Monad.Error
+import Data.Either
 
 -- This module is the evaluator.
 -- i.e. evaluator :: Code -> Data
@@ -26,29 +29,32 @@ import Control.Monad.Error
 --     | Bool Bool
 
 
-eval :: LispVal -> LispVal
+evalLispExpr :: LispVal -> ThrowsError LispVal
 -------------------------
--- PRIMITIVES
+-- PRIMITIVE DATA
 -- These first few pattern matches are the most straightforward cases.
 -- The expressions here are just basic data, so we evaluate them as such.
-eval val@(String _) = val -- bind val to ANY lispval that is a string (i.e. atom, string)
-eval val@(Number _) = val -- same but for number
-eval val@(Bool _) = val
-eval (List [Atom "quote", val]) = val -- match for quoted expr (i.e. straight data)
+evalLispExpr val@(String _) = return val -- bind val to ANY lispval that is a string (i.e. atom, string)
+evalLispExpr val@(Number _) = return val -- same but for number
+evalLispExpr val@(Bool _) = return val
+evalLispExpr (List [Atom "quote", val]) = return val -- match for quoted expr (i.e. straight data)
 --------------------------
 -- FUNCTION APPLICATION
-eval (List (Atom func: args)) = applyFunc func (map eval args) -- [func, arg1, arg2,...]
+evalLispExpr (List (Atom func: args)) = (mapM evalLispExpr args) >>= applyFunc func  -- [func, arg1, arg2,...]
 
 
 
--- apply function to arguments
+-- result is EITHER function applied to arguments, or LispError
+-- i.e. result is an Either value
 -- function is an operator stored in dictionary called primitives
-applyFunc :: String -> [LispVal] -> LispVal
-applyFunc func args = maybe (Bool False) ($ args) $ lookup func primitives
+applyFunc :: String -> [LispVal] -> ThrowsError LispVal
+applyFunc func args = maybe (throwError $ NotFunction "Unrecognized primitive function args" func) 
+                        ($ args) 
+                        (lookup func primitives)
 
 
 -- dictionary of primitive operations
-primitives :: [(String, [LispVal] -> LispVal)]
+primitives :: [(String, [LispVal] -> ThrowsError LispVal)]
 primitives = [("+", numericBinop (+)),
               ("-", numericBinop (-)),
               ("*", numericBinop (*)),
@@ -59,21 +65,24 @@ primitives = [("+", numericBinop (+)),
 
 -- map an operator to code
 -- (map unpackNum args) goes from [LispVal] to [Integer] (convert args to nums)
--- foldl op (map unpackNum args) goes from [Integer] to Integer (eval nums)
+-- foldl op (map unpackNum args) goes from [Integer] to Integer (evalLispExpr nums)
 -- Number $ ... puts result into a LispVal
-numericBinop :: (Integer -> Integer -> Integer) -> [LispVal] -> LispVal
-numericBinop op args = Number $ foldl1 op $ map unpackNum args
+numericBinop :: (Integer -> Integer -> Integer) -> [LispVal] -> ThrowsError LispVal
+-- error case when there is only 1 arg
+numericBinop op singleVal@[_] = throwError (NumArgs 2 singleVal)
+numericBinop op args = (mapM unpackNum args) >>= (return . Number . foldl1 op)
+
 
 -- unpackNum converts numeric LispVal to Integer
-unpackNum :: LispVal -> Integer
-unpackNum (Number n) = n
+unpackNum :: LispVal -> ThrowsError Integer
+unpackNum (Number n) = return n
 unpackNum (String s) = let parsed = reads s in
                         if null parsed 
-                            then 0
-                        else fst $ parsed !! 0
+                            then throwError $ TypeMismatch "number" $ String s
+                        else return $ fst $ parsed !! 0
 
 unpackNum (List [n]) = unpackNum n -- one element list only
-unpackNum _ = 0
+unpackNum notNum = throwError $ TypeMismatch "number" notNum
 
 -------------------------------------------------------------------
 -- Error Handling

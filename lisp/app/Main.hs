@@ -6,14 +6,19 @@ import LispParsing
 import Evaluator
 import Data.Char
 import Data.List
+import Control.Monad
+
 
 main :: IO ()
-main = putStrLn "use ghci"
+main = do
+        input <- getLine
+        evaled <- return $ liftM show $ readLispExpr input >>= evalLispExpr
+        putStrLn $ extractValue $ trapError evaled
 
 
 -- read an expression and interpret it as a lispval
-readExpr :: String -> ThrowsError LispVal
-readExpr input = case parse' parseLispExpr "lisp" input of
+readLispExpr :: String -> ThrowsError LispVal
+readLispExpr input = case parse' parseLispExpr "lisp" input of
     -- don't have support for line num/column num
     Left err -> throwError $ Parse (ParseError (SourcePos err 0 0) ["err"])
     Right val -> return val

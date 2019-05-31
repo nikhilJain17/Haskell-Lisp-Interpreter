@@ -1,10 +1,10 @@
 name:                lisp
 version:             0.1.0.0
-github:              "githubuser/lisp"
+github:              "nikhilJain17"
 license:             BSD3
-author:              "Author name here"
-maintainer:          "example@example.com"
-copyright:           "2019 Author name here"
+author:              "Nikhil Jain"
+maintainer:          ""
+copyright:           "2019 Nikhil Jain"
 
 extra-source-files:
 - README.md
