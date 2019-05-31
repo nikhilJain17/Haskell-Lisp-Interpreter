@@ -1,9 +1,15 @@
 module Evaluator (
-eval
+eval,
+throwError,
+-- Parser,
+ParseError(..),
+ThrowsError,
+LispError(..)
 )
 
 where
 
+import Parsing
 import LispParsing
 import Control.Monad.Error
 
@@ -112,6 +118,24 @@ showError (TypeMismatch expected found) = "Type mismatch, expected: "
                                 ++ expected ++ ", found: " ++ show found         
 showError (Parser (ParseError sourcepos _)) = "Parse error at" ++ show sourcepos
 
+instance Error LispError where
+    noMsg = Default "An error has occured"
+    strMsg = Default
+
+
+-- type for funcs that may throw a LispError or may return a value
+-- this is a CURRIED DATA CONSTRUCTOR!
+-- i.e. if f :: Int->Int, then ThrowsError Integer => Either LispError Integer
+type ThrowsError = Either LispError
+
+-- all our errors turn into strings and get returned
+-- catchError :: Either a b -> (error -> Either) -> 
+trapError action = catchError action (return . show)
+
+-- extract data from either monad
+-- not to be used with Left, since that's an error
+extractValue :: ThrowsError a -> a
+extractValue (Right val) = val
 
 
 
