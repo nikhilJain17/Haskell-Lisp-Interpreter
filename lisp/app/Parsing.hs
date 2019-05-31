@@ -331,8 +331,8 @@ endBy p sep = many (do {a <- p; sep; return a})
 
 -- parse' p filePath input runs a parser p over Identity without user state
 -- note there is already a func parse
-parse' :: Parser a -> SourceName -> String -> Either () a
-parse' p _ s = if length (parse p s) == 0 then Left ()
+parse' :: Parser a -> SourceName -> String -> Either SourceName a
+parse' p sn s = if length (parse p s) == 0 then Left sn
                 else Right (fst((apply p s)!!0)) 
 
 letter :: Parser Char

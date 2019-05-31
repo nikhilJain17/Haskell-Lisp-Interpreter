@@ -1,10 +1,10 @@
 module Evaluator (
 eval,
 throwError,
--- Parser,
 ParseError(..),
 ThrowsError,
-LispError(..)
+LispError(..),
+SourcePos(..)
 )
 
 where
@@ -86,17 +86,6 @@ type Column     = Int
 data SourcePos  = SourcePos SourceName !Line !Column
     deriving ( Eq, Ord)
 
-data ParseError = ParseError !SourcePos [String]
-
-
-data LispError = NumArgs Integer [LispVal]
-                | TypeMismatch String LispVal
-                | Parser ParseError
-                | BadSpecialForm String LispVal
-                | NotFunction String String
-                | UnboundVar String String
-                | Default String
-
 instance Show SourcePos where
   show (SourcePos name line column)
     | null name = showLineColumn
@@ -105,6 +94,16 @@ instance Show SourcePos where
       showLineColumn    = "(line " ++ show line ++
                           ", column " ++ show column ++
                           ")"
+
+data ParseError = ParseError !SourcePos [String]
+
+data LispError = NumArgs Integer [LispVal]
+                | TypeMismatch String LispVal
+                | Parse ParseError
+                | BadSpecialForm String LispVal
+                | NotFunction String String
+                | UnboundVar String String
+                | Default String
 
 instance Show LispError where show = showError
 
@@ -116,24 +115,28 @@ showError (NumArgs expected found) = "Expected: " ++ show expected
                                 ++ " args, found: " ++ show found                
 showError (TypeMismatch expected found) = "Type mismatch, expected: "
                                 ++ expected ++ ", found: " ++ show found         
-showError (Parser (ParseError sourcepos _)) = "Parse error at" ++ show sourcepos
+showError (Parse (ParseError sourcepos _)) = "Parse error at" ++ show sourcepos
 
+-- make LispError an instance of Prelude's Error
+-- can use built in error handling funcs
 instance Error LispError where
     noMsg = Default "An error has occured"
     strMsg = Default
 
-
--- type for funcs that may throw a LispError or may return a value
--- this is a CURRIED DATA CONSTRUCTOR!
+-- type for functions that may throw a LispError or may return a value
+-- this is a CURRIED TYPE CONSTRUCTOR!
 -- i.e. if f :: Int->Int, then ThrowsError Integer => Either LispError Integer
 type ThrowsError = Either LispError
 
 -- all our errors turn into strings and get returned
--- catchError :: Either a b -> (error -> Either) -> 
+-- catchError takes an Either and a func
+    -- if the Either has an error, then it applies the func to the either
+    -- in this case, we turn our errors into strings and put that string into an either
+-- trapError :: ThrowsError a -> Either
 trapError action = catchError action (return . show)
 
 -- extract data from either monad
--- not to be used with Left, since that's an error
+-- not to be used with Left, since that's a (programmer) error
 extractValue :: ThrowsError a -> a
 extractValue (Right val) = val
 

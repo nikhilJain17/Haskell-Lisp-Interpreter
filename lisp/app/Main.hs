@@ -14,7 +14,8 @@ main = putStrLn "use ghci"
 -- read an expression and interpret it as a lispval
 readExpr :: String -> ThrowsError LispVal
 readExpr input = case parse' parseLispExpr "lisp" input of
-    Left err -> throwError $ Parser err
+    -- don't have support for line num/column num
+    Left err -> throwError $ Parse (ParseError (SourcePos err 0 0) ["err"])
     Right val -> return val
 
 -- This is an example of parsers that parse math expr and evals their result.
