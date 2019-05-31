@@ -39,9 +39,18 @@ evalLispExpr val@(Number _) = return val -- same but for number
 evalLispExpr val@(Bool _) = return val
 evalLispExpr (List [Atom "quote", val]) = return val -- match for quoted expr (i.e. straight data)
 --------------------------
--- FUNCTION APPLICATION
-evalLispExpr (List (Atom func: args)) = (mapM evalLispExpr args) >>= applyFunc func  -- [func, arg1, arg2,...]
+-- CONDITIONALS 
+evalLispExpr (List [Atom "if", pred, conseq, alt]) =
+    do  
+        result <- evalLispExpr pred
+        case result of -- (note that any value other than #f is True)
+            Bool False -> evalLispExpr alt
+            otherwise -> evalLispExpr conseq
 
+--------------------------
+-- FUNCTION APPLICATION
+-- note that we bind because we lift our values into ThrowsError monad
+evalLispExpr (List (Atom func: args)) = (mapM evalLispExpr args) >>= applyFunc func  -- [func, arg1, arg2,...]
 
 
 -- result is EITHER function applied to arguments, or LispError
