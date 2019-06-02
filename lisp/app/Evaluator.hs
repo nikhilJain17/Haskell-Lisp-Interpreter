@@ -53,6 +53,7 @@ evalLispExpr (List [Atom "if", pred, conseq, alt]) =
 evalLispExpr (List (Atom func: args)) = (mapM evalLispExpr args) >>= applyFunc func  -- [func, arg1, arg2,...]
 
 
+
 -- result is EITHER function applied to arguments, or LispError
 -- i.e. result is an Either value
 -- function is an operator stored in dictionary called primitives
@@ -82,7 +83,12 @@ primitives = [("+", numericBinop (+)), -- numeric ops
               ("string=?", strBoolBinop (==)), -- comparison for str
               ("string?", strBoolBinop (>)),
               ("string<=?", strBoolBinop (<=)),
-              ("string>=?", strBoolBinop (>=))] 
+              ("string>=?", strBoolBinop (>=)),
+              ("car", car), -- LISt Processing functions
+              ("cdr", cdr),
+              ("cons", cons),
+              ("eq?", eqv),
+              ("eqv?", eqv)] 
 
 
 -- generic boolBinop function that is PARAMETERIZED by unpacker func
@@ -131,6 +137,57 @@ unpackNum (String s) = let parsed = reads s in
 
 unpackNum (List [n]) = unpackNum n -- one element list only
 unpackNum notNum = throwError $ TypeMismatch "number" notNum
+
+-- list functions
+
+-- the reason these funcs input [LispVal] is to handle NumArgs exception
+-- i.e. they SHOULD take in 1 input (a List) but if they take in more,
+-- then the lisp code is wrong
+-- i.e. if we inputted LispVal, then it would never throw a NumArgs exception
+-- because we would just take in the first argument and ignore the extra (wrong) ones
+
+-- car list returns list!!0
+-- (car (a b c)) = a
+car :: [LispVal] -> ThrowsError LispVal
+car [List (x:xs)] = return x
+car [DottedList (x:xs) _] = return x
+car [badArg] = throwError $ TypeMismatch "pear" badArg
+car badArgList = throwError $ NumArgs 1 badArgList
+
+-- cdr returns tail list
+-- (cdr (a b c)) = (b c)
+cdr :: [LispVal] -> ThrowsError LispVal
+cdr [List (x:xs)] = return $ List xs -- note that [x] is pattern matched as x : [] so (cdr a) = Nil
+cdr [DottedList (_:xs) tail] = return $ DottedList xs tail 
+cdr [DottedList [xs] x] = return x -- (cdr (a . b)) = b
+cdr [badArg] = throwError $ TypeMismatch "pear" badArg
+cdr badArgList = throwError $ NumArgs 1 badArgList
+
+-- cons combines lists
+
+cons :: [LispVal] -> ThrowsError LispVal
+cons [x, List []] = return $ List $ [x] -- (cons x Nil) = (x) i.e. (x . Nil)
+cons [x, List xs] = return $ List $ [x] ++ xs -- (cons a (b c)) = (a b c)
+cons [x, DottedList xs tail] = return $ DottedList ([x] ++ xs) tail -- (cons a (b . c)) = (a b . c)
+cons [x, y] = return $ DottedList [x] y -- (cons a b) = (a . b), cons isn't nil terminated by default
+cons badArgList = throwError $ NumArgs 2 badArgList
+
+-- equiv recognizes things as equal if the values are equivalent
+
+eqv :: [LispVal] -> ThrowsError LispVal
+eqv [(Bool arg1), (Bool arg2)] = return $ Bool (arg1 == arg2)
+eqv [(Number arg1), (Number arg2)] = return $ Bool (arg1 == arg2)
+eqv [(String arg1), (String arg2)] = return $ Bool (arg1 == arg2)
+eqv [(Atom arg1), (Atom arg2)] = return $ Bool (arg1 == arg2)
+eqv [(DottedList x tailX), (DottedList y tailY)] = eqv [List (x ++ [tailX]), List (y ++ [tailY]) ]
+eqv [(List arg1), (List arg2)] = return $ Bool $ (length arg1 == length arg2) && 
+    (and $ map eqvPair $ zip arg1 arg2) -- and = foldr1 (&&)
+        where 
+            eqvPair (x1, x2) = case eqv [x1, x2] of
+                                    Left err -> False
+                                    Right (Bool val) -> val
+eqv [_, _] = return $ Bool False -- type mismatch...
+eqv badArgList = throwError $ NumArgs 2 badArgList
 
 -------------------------------------------------------------------
 -- Error Handling
