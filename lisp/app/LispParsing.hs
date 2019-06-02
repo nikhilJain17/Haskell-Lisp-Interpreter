@@ -62,7 +62,7 @@ parseNumber = liftM (Number . read) $ many1 digit
 
 -- to parse Lisp exprs
 -- note that (+++) is the choice operator defined in Parsing.hs
-parseLispExpr :: Parser LispVal
+parseLispExpr :: Parser LispVal -- @TODO should do spaces first...
 parseLispExpr = parseString     -- self explanatory 
             +++ parseAtom 
             +++ parseNumber

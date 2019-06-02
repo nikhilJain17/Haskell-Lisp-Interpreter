@@ -51,7 +51,7 @@ evalLispExpr (List [Atom "if", pred, conseq, alt]) =
 -- FUNCTION APPLICATION
 -- note that we bind because we lift our values into ThrowsError monad
 evalLispExpr (List (Atom func: args)) = (mapM evalLispExpr args) >>= applyFunc func  -- [func, arg1, arg2,...]
-
+evalLispExpr badForm = throwError $ BadSpecialForm "Unrecognized special form" badForm
 
 
 -- result is EITHER function applied to arguments, or LispError
