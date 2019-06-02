@@ -164,7 +164,7 @@ cdr [badArg] = throwError $ TypeMismatch "pear" badArg
 cdr badArgList = throwError $ NumArgs 1 badArgList
 
 -- cons combines lists
-
+-- @TODO (cons 2 '(3 . 4))????
 cons :: [LispVal] -> ThrowsError LispVal
 cons [x, List []] = return $ List $ [x] -- (cons x Nil) = (x) i.e. (x . Nil)
 cons [x, List xs] = return $ List $ [x] ++ xs -- (cons a (b c)) = (a b c)
