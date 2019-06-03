@@ -1,3 +1,4 @@
+{-# LANGUAGE ExistentialQuantification #-} -- we are using existentials to squash together our unpacker funcs into a single type
 module Evaluator (
 evalLispExpr,
 throwError,
@@ -88,7 +89,8 @@ primitives = [("+", numericBinop (+)), -- numeric ops
               ("cdr", cdr),
               ("cons", cons),
               ("eq?", eqv),
-              ("eqv?", eqv)] 
+              ("eqv?", eqv),
+              ("equal?", equal)] 
 
 
 -- generic boolBinop function that is PARAMETERIZED by unpacker func
@@ -198,7 +200,7 @@ type Column     = Int
 
 -- represends source (filename), line, and column of things
 data SourcePos  = SourcePos SourceName !Line !Column
-    deriving ( Eq, Ord)
+    deriving (Eq, Ord)
 
 instance Show SourcePos where
   show (SourcePos name line column)
@@ -253,6 +255,37 @@ trapError action = catchError action (return . show)
 -- not to be used with Left, since that's a (programmer) error
 extractValue :: ThrowsError a -> a
 extractValue (Right val) = val
+------------------------------------------------------------------
+-- Weak Typing
+-- we want to compare data of different types
+-- i.e. "2" and 2
+
+-- algebraic data type for a generic unpacker
+-- we can't store values of different types in list
+-- but we can use existential types 
+data Unpacker = forall a . Eq a => AnyUnpacker (LispVal -> ThrowsError a)
+
+-- takes an Unpacker, determines if two LispVals are equal when it unpacks them
+unpackEquals :: LispVal -> LispVal -> Unpacker -> ThrowsError Bool
+unpackEquals arg1 arg2 (AnyUnpacker unpacker) =
+    do
+        unpacked1 <- unpacker arg1 -- convert LispVals to Haskell values
+        unpacked2 <- unpacker arg2
+        return (unpacked1 == unpacked2) `catchError` (const $ return False)
+
+-- (equal? "2" 2) = #t
+-- objects are equal? if they print the same
+equal :: [LispVal] -> ThrowsError LispVal
+equal [arg1, arg2] = 
+    do  -- make hetero list of funcs, then mapM unpack them to get vals, then OR them to fold the 2 elem list 
+        primitiveEquals <- liftM or $ mapM (unpackEquals arg1 arg2) [AnyUnpacker unpackNum, AnyUnpacker unpackStr, AnyUnpacker unpackBool]
+        eqvEquals <- eqv [arg1, arg2]
+        return $ Bool $ (primitiveEquals || let (Bool x) = eqvEquals in x)
+
+equal badArgList = throwError $ NumArgs 2 badArgList
+
+
+
 
 
 
