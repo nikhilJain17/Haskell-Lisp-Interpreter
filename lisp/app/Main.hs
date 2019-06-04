@@ -7,19 +7,58 @@ import Evaluator
 import Data.Char
 import Data.List
 import Control.Monad
+import System.IO hiding (try)
+import System.Environment
+-- import System.Console.Editline.Readline
 
 
 main :: IO ()
 main = do
-        input <- getLine
-        evaled <- return $ liftM show $ readLispExpr input >>= evalLispExpr
-        putStrLn $ extractValue $ trapError evaled
+        args <- getArgs
+        case length args of
+            0 -> runRepl
+            1 -> evalAndPrint $ args !! 0
+            otherwise -> putStrLn "Too many arguments! either 0 or 1 args"
 
+--------------------------------------------------------------------------
+-- REPL functions
+
+-- print string and remove it from buffer
+flushStr :: String -> IO ()
+flushStr str = putStr str >> hFlush stdout
+
+-- print a prompt, read a line of input
+readPrompt :: String -> IO String
+readPrompt prompt = flushStr prompt >> getLine
+
+-- parse and eval a string, trapping errs along the way
+evalString :: String -> IO String
+evalString expr = return $ extractValue $ trapError (liftM show $ readLispExpr expr >>= evalLispExpr)
+
+-- eval a string, print result
+evalAndPrint :: String -> IO ()
+evalAndPrint expr = evalString expr >>= putStrLn
+
+-- looper that doesn't give us a value
+-- pred is stop condition
+-- prompt is action BEFORE input
+-- action is action applied to input
+until_ :: Monad m => (a -> Bool) -> m a -> (a -> m ()) -> m ()
+until_ pred prompt action = 
+    do
+        result <- prompt
+        if pred result 
+            then return ()
+        else action result >> until_ pred prompt action-- apply action to result, toss return val, and call until again
+
+-- master repl
+runRepl :: IO ()
+runRepl = until_ (== "quit") (readPrompt "Lisp >>> ") evalAndPrint
 
 -- read an expression and interpret it as a lispval
 readLispExpr :: String -> ThrowsError LispVal
 readLispExpr input = case parse' parseLispExpr "lisp" input of
-    -- don't have support for line num/column num
+    -- don't have support for line num/column num yet, put default 0 0 there for now
     Left err -> throwError $ Parse (ParseError (SourcePos err 0 0) ["err"])
     Right val -> return val
 

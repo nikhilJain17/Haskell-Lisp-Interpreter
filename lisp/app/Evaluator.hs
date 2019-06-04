@@ -263,7 +263,7 @@ extractValue (Right val) = val
 -- algebraic data type for a generic unpacker
 -- we can't store values of different types in list
 -- but we can use existential types 
-data Unpacker = forall a . Eq a => AnyUnpacker (LispVal -> ThrowsError a)
+data Unpacker = forall a. Eq a => AnyUnpacker (LispVal -> ThrowsError a)
 
 -- takes an Unpacker, determines if two LispVals are equal when it unpacks them
 unpackEquals :: LispVal -> LispVal -> Unpacker -> ThrowsError Bool
@@ -275,10 +275,16 @@ unpackEquals arg1 arg2 (AnyUnpacker unpacker) =
 
 -- (equal? "2" 2) = #t
 -- objects are equal? if they print the same
+
+-- @TODO why doesn't this work lol
+-- the unpackers are throwing TypeErrors...
+-- idk, moving on and coming back to this
+
 equal :: [LispVal] -> ThrowsError LispVal
 equal [arg1, arg2] = 
     do  -- make hetero list of funcs, then mapM unpack them to get vals, then OR them to fold the 2 elem list 
-        primitiveEquals <- liftM or $ mapM (unpackEquals arg1 arg2) [AnyUnpacker unpackNum, AnyUnpacker unpackStr, AnyUnpacker unpackBool]
+        primitiveEquals <- liftM or $ mapM (unpackEquals arg1 arg2) 
+            [AnyUnpacker unpackNum, AnyUnpacker unpackStr, AnyUnpacker unpackBool]
         eqvEquals <- eqv [arg1, arg2]
         return $ Bool $ (primitiveEquals || let (Bool x) = eqvEquals in x)
 
