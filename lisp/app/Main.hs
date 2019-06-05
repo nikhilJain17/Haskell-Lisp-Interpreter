@@ -7,9 +7,13 @@ import Evaluator
 import Data.Char
 import Data.List
 import Control.Monad
+import Control.Monad.IO.Class
+import Control.Monad.Error
+import Control.Monad.Trans.Error
 import System.IO hiding (try)
 import System.Environment
--- import System.Console.Editline.Readline
+import Data.IORef -- stateful thread thing for envs, can only be used in IO monad
+-- import System.Console.Editline.Readline -- getLine doesn't accept backspaces
 
 
 main :: IO ()
@@ -17,7 +21,7 @@ main = do
         args <- getArgs
         case length args of
             0 -> runRepl
-            1 -> evalAndPrint $ args !! 0
+            1 -> runOne $ args !! 0 -- uses default nullEnv piped into runOne
             otherwise -> putStrLn "Too many arguments! either 0 or 1 args"
 
 --------------------------------------------------------------------------
@@ -32,12 +36,12 @@ readPrompt :: String -> IO String
 readPrompt prompt = flushStr prompt >> getLine
 
 -- parse and eval a string, trapping errs along the way
-evalString :: String -> IO String
-evalString expr = return $ extractValue $ trapError (liftM show $ readLispExpr expr >>= evalLispExpr)
+evalString :: Env -> String -> IO String
+evalString env expr = runIOThrows $ liftM show $ (liftThrows $ readLispExpr expr) >>= evalLispExpr env
 
 -- eval a string, print result
-evalAndPrint :: String -> IO ()
-evalAndPrint expr = evalString expr >>= putStrLn
+evalAndPrint :: Env -> String -> IO ()
+evalAndPrint env expr = evalString env expr >>= putStrLn
 
 -- looper that doesn't give us a value
 -- pred is stop condition
@@ -53,24 +57,105 @@ until_ pred prompt action =
 
 -- master repl
 runRepl :: IO ()
-runRepl = until_ (== "quit") (readPrompt "Lisp >>> ") evalAndPrint
+runRepl = nullEnv >>= until_ (== "quit") (readPrompt "Lisp >>> ") . evalAndPrint
+
+-- initialize env with null IORef 
+runOne :: String -> IO ()
+runOne expr = nullEnv >>= flip evalAndPrint expr
 
 -- read an expression and interpret it as a lispval
 readLispExpr :: String -> ThrowsError LispVal
 readLispExpr input = case parse' parseLispExpr "lisp" input of
     -- don't have support for line num/column num yet, put default 0 0 there for now
-    Left err -> throwError $ Parse (ParseError (SourcePos err 0 0) ["err"])
+    Left err -> Control.Monad.Error.throwError $ Parse (ParseError (SourcePos err 0 0) ["err"])
     Right val -> return val
+-- ----------------------------------------------------------------------------
+-- -- Variables and Assignment
+-- -- 2 ways to change environment:
+-- -- (set! var value) updates variable
+-- -- (define var value) creates new variable
+
+-- -- empty environment, i.e. no variables assigned
+-- nullEnv :: IO Env
+-- nullEnv = newIORef []
+
+-- -- we need to use 2 monads simultaneously! Error and Env 
+-- -- its ok, monad transformers are here to help
+-- -- they are like "super monads" and combine monads together
+
+-- -- equivalent of "lift" for monad transformers
+-- -- i.e. lift first-level monad into second-level monad
+-- -- actually wild
+-- liftThrows :: ThrowsError a -> IOThrowsError a
+-- liftThrows (Left err) = Control.Monad.Trans.Error.throwError err
+-- liftThrows (Right val) = return val
+
+-- -- helper func to run the action in the supermonad IOThrowsError 
+-- -- (trapError action) takes potential errors to string reprs
+-- -- runErrorT (trapError action) does the computation
+-- -- return . extractValue extracts value and puts it in IO monad
+-- runIOThrows :: IOThrowsError String -> IO String 
+-- runIOThrows action = runErrorT (trapError action) >>= return . extractValue
 
 
+-- -- check if variable is in scope already
+-- isBound :: Env -> String -> IO Bool
+-- -- (readIORef envRef) gets the IO env value
+-- -- then pass this value to lookup to get what we want
+-- -- "maybe False (const True)" converts the Maybe from lookup to a Bool
+-- -- then return to lift into IO monad, even though we just want a true/false value
+-- isBound envRef var = readIORef envRef >>= return . maybe False (const True) . lookup var
+
+-- -- get value of bound variable
+-- getVar :: Env -> String -> IOThrowsError LispVal
+-- getVar envRef var = 
+--     do 
+--         env <- liftIO $ readIORef envRef -- get env from IORef and lift into IOThrowsError supermonad
+--         maybe (Control.Monad.Trans.Error.throwError $ UnboundVar "Unbound variable" var)
+--             (liftIO . readIORef) -- if Just val, then snipe val and put it in monad 
+--             (lookup var env) -- lookup in dict, returns Maybe 
+
+-- -- set value of bound variable
+-- setVar :: Env -> String -> LispVal -> IOThrowsError LispVal
+-- setVar envRef var val =
+--     do
+--         env <- liftIO $ readIORef envRef -- get env from IORef
+--         maybe (Control.Monad.Trans.Error.throwError $ UnboundVar "Unbound variable" var)
+--             (liftIO . (flip writeIORef val)) -- if val exists, then write new value 
+--             (lookup var env) -- lookup in dict, returns Maybe 
+--         return val
+
+-- -- sets value if defined, or creates it if not
+-- defineVar :: Env -> String -> LispVal -> IOThrowsError LispVal
+-- defineVar envRef var value =
+--     do
+--         alreadyDefined <- liftIO $ isBound envRef var
+--         if alreadyDefined
+--             then setVar envRef var value >> return value
+--             else liftIO $ do
+--                 valueRef <- newIORef value
+--                 env <- readIORef envRef 
+--                 writeIORef envRef ((var, valueRef) : env)
+--                 return value
+
+-- -- bind lots of vars at the same time (i.e. in function calls)
+-- bindVars :: Env -> [(String, LispVal)] -> IO Env
+-- bindVars envRef bindings = 
+--     -- get env,           bind new vars,    put it in new IORef box
+--     readIORef envRef >>= extendEnv bindings >>= newIORef
+--     where -- extendEnv maps addBinding to list of desired bindings, and then appends env to end of list
+--         extendEnv bindings env = liftM (++ env) (mapM addBinding bindings)
+--         addBinding (var, value) = do -- takes in (name, val), puts it in new IORef box, returns (var, box)  
+--                                     ref <- newIORef value
+--                                     return (var, ref)
 
 ----------------------------------------------------------------------------
 -- This is an example of parsers that parse math expr and evals their result.
--- Here's the data types we are implicitly using.
+-- Here's the grammar of our "language".
 -- In other words, this is the way we model math exprs.
 
 -- expr := expr addop term | term
--- expr := term mulop factor | factor
+-- term := term mulop factor | factor
 -- factor := digit | expr
 -- digit := 0 | 1 | ... | 9
 -- addop := + | -

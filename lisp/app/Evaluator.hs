@@ -1,13 +1,17 @@
 {-# LANGUAGE ExistentialQuantification #-} -- we are using existentials to squash together our unpacker funcs into a single type
 module Evaluator (
 evalLispExpr,
-throwError,
+--throwError,
 extractValue,
 trapError,
 ParseError(..),
 ThrowsError,
 LispError(..),
-SourcePos(..)
+SourcePos(..),
+Env,
+nullEnv,
+runIOThrows,
+liftThrows
 )
 
 where
@@ -16,6 +20,9 @@ import Parsing
 import LispParsing
 import Control.Monad.Error
 import Data.Either
+import Control.Monad.Trans.Error hiding (catchError)
+import Control.Monad.IO.Class
+import Data.IORef -- stateful thread thing for envs, can only be used in IO monad
 
 -- This module is the evaluator.
 -- i.e. evaluator :: Code -> Data
@@ -29,37 +36,53 @@ import Data.Either
 --     | String String 
 --     | Bool Bool
 
+-----------------------------
+-- Variables and assignments: 
+-- IORef is a state monad (box of mutable state) that gets passed around and mutated by IO actions
+-- another option is State monad, but we are using IO anyways so let's use IORef
+type Env = IORef [(String, IORef LispVal)] -- the type for states
+type IOThrowsError = ErrorT LispError IO -- takes one more arg, which is return type of function
 
-evalLispExpr :: LispVal -> ThrowsError LispVal
+
+
+evalLispExpr :: Env -> LispVal -> IOThrowsError LispVal
 -------------------------
 -- PRIMITIVE DATA
 -- These first few pattern matches are the most straightforward cases.
 -- The expressions here are just basic data, so we evaluate them as such.
-evalLispExpr val@(String _) = return val -- bind val to ANY lispval that is a string (i.e. atom, string)
-evalLispExpr val@(Number _) = return val -- same but for number
-evalLispExpr val@(Bool _) = return val
-evalLispExpr (List [Atom "quote", val]) = return val -- match for quoted expr (i.e. straight data)
+evalLispExpr env val@(String _) = return val -- bind val to ANY lispval that is a string (i.e. atom, string)
+evalLispExpr env val@(Number _) = return val -- same but for number
+evalLispExpr env val@(Bool _) = return val
+evalLispExpr env (Atom id) = getVar env id -- look up variable
+evalLispExpr env (List [Atom "quote", val]) = return val -- match for quoted expr (i.e. straight data)
 --------------------------
 -- CONDITIONALS 
-evalLispExpr (List [Atom "if", pred, conseq, alt]) =
+evalLispExpr env (List [Atom "if", pred, conseq, alt]) =
     do  
-        result <- evalLispExpr pred
+        result <- evalLispExpr env pred
         case result of -- (note that any value other than #f is True)
-            Bool False -> evalLispExpr alt
-            otherwise -> evalLispExpr conseq
+            Bool False -> evalLispExpr env alt
+            otherwise -> evalLispExpr env conseq
+--------------------------
+-- VARIABLE ASSIGNMENT
+evalLispExpr env (List [Atom "set!", Atom var, form]) =
+    evalLispExpr env form >>= setVar env var -- (evalLisExpr env form) = val, pipe into setVar
+
+evalLispExpr env (List [Atom "define", Atom var, form]) =
+    evalLispExpr env form >>= defineVar env var
 
 --------------------------
 -- FUNCTION APPLICATION
 -- note that we bind because we lift our values into ThrowsError monad
-evalLispExpr (List (Atom func: args)) = (mapM evalLispExpr args) >>= applyFunc func  -- [func, arg1, arg2,...]
-evalLispExpr badForm = throwError $ BadSpecialForm "Unrecognized special form" badForm
+evalLispExpr env (List (Atom func: args)) = mapM (evalLispExpr env) args >>= liftThrows . applyFunc func  -- [func, arg1, arg2,...]
+evalLispExpr env badForm = Control.Monad.Error.throwError $ BadSpecialForm "Unrecognized special form" badForm
 
 
 -- result is EITHER function applied to arguments, or LispError
 -- i.e. result is an Either value
 -- function is an operator stored in dictionary called primitives
 applyFunc :: String -> [LispVal] -> ThrowsError LispVal
-applyFunc func args = maybe (throwError $ NotFunction "Unrecognized primitive function args" func) 
+applyFunc func args = maybe (Control.Monad.Error.throwError $ NotFunction "Unrecognized primitive function args" func) 
                         ($ args) 
                         (lookup func primitives)
 
@@ -97,7 +120,7 @@ primitives = [("+", numericBinop (+)), -- numeric ops
 -- i.e. the unpacker converts LispVals into native Haskell types
 boolBinop :: (LispVal -> ThrowsError a) -> (a -> a -> Bool) -> [LispVal] -> ThrowsError LispVal
 boolBinop unpacker op args = if length args /= 2 
-                                then throwError $ NumArgs 2 args
+                                then Control.Monad.Error.throwError $ NumArgs 2 args
                             else do -- note that either arg may throw TypeMismatch
                                     left <- unpacker $ args !! 0
                                     right <- unpacker $ args !! 1
@@ -112,12 +135,12 @@ unpackStr :: LispVal -> ThrowsError String
 unpackStr (String s) = return s
 unpackStr (Number s) = return $ show s
 unpackStr (Bool s) = return $ show s
-unpackStr notString = throwError $ TypeMismatch "string" notString 
+unpackStr notString = Control.Monad.Error.throwError $ TypeMismatch "string" notString 
 
 -- convert boolean lispval to haskell bool
 unpackBool :: LispVal -> ThrowsError Bool
 unpackBool (Bool b) = return b
-unpackBool notBool = throwError $ TypeMismatch "boolean" notBool
+unpackBool notBool = Control.Monad.Error.throwError $ TypeMismatch "boolean" notBool
 
 -- map an operator to code
 -- (map unpackNum args) goes from [LispVal] to [Integer] (convert args to nums)
@@ -125,7 +148,7 @@ unpackBool notBool = throwError $ TypeMismatch "boolean" notBool
 -- Number $ ... puts result into a LispVal
 numericBinop :: (Integer -> Integer -> Integer) -> [LispVal] -> ThrowsError LispVal
 -- error case when there is only 1 arg
-numericBinop op singleVal@[_] = throwError (NumArgs 2 singleVal)
+numericBinop op singleVal@[_] = Control.Monad.Error.throwError (NumArgs 2 singleVal)
 numericBinop op args = (mapM unpackNum args) >>= (return . Number . foldl1 op)
 
 
@@ -134,11 +157,11 @@ unpackNum :: LispVal -> ThrowsError Integer
 unpackNum (Number n) = return n
 unpackNum (String s) = let parsed = reads s in
                         if null parsed 
-                            then throwError $ TypeMismatch "number" $ String s
+                            then Control.Monad.Error.throwError $ TypeMismatch "number" $ String s
                         else return $ fst $ parsed !! 0
 
 unpackNum (List [n]) = unpackNum n -- one element list only
-unpackNum notNum = throwError $ TypeMismatch "number" notNum
+unpackNum notNum = Control.Monad.Error.throwError $ TypeMismatch "number" notNum
 
 -- list functions
 
@@ -153,8 +176,8 @@ unpackNum notNum = throwError $ TypeMismatch "number" notNum
 car :: [LispVal] -> ThrowsError LispVal
 car [List (x:xs)] = return x
 car [DottedList (x:xs) _] = return x
-car [badArg] = throwError $ TypeMismatch "pear" badArg
-car badArgList = throwError $ NumArgs 1 badArgList
+car [badArg] = Control.Monad.Error.throwError $ TypeMismatch "pear" badArg
+car badArgList = Control.Monad.Error.throwError $ NumArgs 1 badArgList
 
 -- cdr returns tail list
 -- (cdr (a b c)) = (b c)
@@ -162,8 +185,8 @@ cdr :: [LispVal] -> ThrowsError LispVal
 cdr [List (x:xs)] = return $ List xs -- note that [x] is pattern matched as x : [] so (cdr a) = Nil
 cdr [DottedList (_:xs) tail] = return $ DottedList xs tail 
 cdr [DottedList [xs] x] = return x -- (cdr (a . b)) = b
-cdr [badArg] = throwError $ TypeMismatch "pear" badArg
-cdr badArgList = throwError $ NumArgs 1 badArgList
+cdr [badArg] = Control.Monad.Error.throwError $ TypeMismatch "pear" badArg
+cdr badArgList = Control.Monad.Error.throwError $ NumArgs 1 badArgList
 
 -- cons combines lists
 -- @TODO (cons 2 '(3 . 4))????
@@ -172,7 +195,7 @@ cons [x, List []] = return $ List $ [x] -- (cons x Nil) = (x) i.e. (x . Nil)
 cons [x, List xs] = return $ List $ [x] ++ xs -- (cons a (b c)) = (a b c)
 cons [x, DottedList xs tail] = return $ DottedList ([x] ++ xs) tail -- (cons a (b . c)) = (a b . c)
 cons [x, y] = return $ DottedList [x] y -- (cons a b) = (a . b), cons isn't nil terminated by default
-cons badArgList = throwError $ NumArgs 2 badArgList
+cons badArgList = Control.Monad.Error.throwError $ NumArgs 2 badArgList
 
 -- equiv recognizes things as equal if the values are equivalent
 
@@ -189,7 +212,7 @@ eqv [(List arg1), (List arg2)] = return $ Bool $ (length arg1 == length arg2) &&
                                     Left err -> False
                                     Right (Bool val) -> val
 eqv [_, _] = return $ Bool False -- type mismatch...
-eqv badArgList = throwError $ NumArgs 2 badArgList
+eqv badArgList = Control.Monad.Error.throwError $ NumArgs 2 badArgList
 
 -------------------------------------------------------------------
 -- Error Handling
@@ -288,7 +311,89 @@ equal [arg1, arg2] =
         eqvEquals <- eqv [arg1, arg2]
         return $ Bool $ (primitiveEquals || let (Bool x) = eqvEquals in x)
 
-equal badArgList = throwError $ NumArgs 2 badArgList
+equal badArgList = Control.Monad.Error.throwError $ NumArgs 2 badArgList
+
+----------------------------------------------------------------------------
+-- Variables and Assignment
+-- 2 ways to change environment:
+-- (set! var value) updates variable
+-- (define var value) creates new variable
+
+-- empty environment, i.e. no variables assigned
+nullEnv :: IO Env
+nullEnv = newIORef []
+
+-- we need to use 2 monads simultaneously! Error and Env 
+-- its ok, monad transformers are here to help
+-- they are like "super monads" and combine monads together
+
+-- equivalent of "lift" for monad transformers
+-- i.e. lift first-level monad into second-level monad
+-- actually wild
+liftThrows :: ThrowsError a -> IOThrowsError a
+liftThrows (Left err) = Control.Monad.Trans.Error.throwError err
+liftThrows (Right val) = return val
+
+-- helper func to run the action in the supermonad IOThrowsError 
+-- (trapError action) takes potential errors to string reprs
+-- runErrorT (trapError action) does the computation
+-- return . extractValue extracts value and puts it in IO monad
+runIOThrows :: IOThrowsError String -> IO String 
+runIOThrows action = runErrorT (trapError action) >>= return . extractValue
+
+
+-- check if variable is in scope already
+isBound :: Env -> String -> IO Bool
+-- (readIORef envRef) gets the IO env value
+-- then pass this value to lookup to get what we want
+-- "maybe False (const True)" converts the Maybe from lookup to a Bool
+-- then return to lift into IO monad, even though we just want a true/false value
+isBound envRef var = readIORef envRef >>= return . maybe False (const True) . lookup var
+
+-- get value of bound variable
+getVar :: Env -> String -> IOThrowsError LispVal
+getVar envRef var = 
+    do 
+        env <- liftIO $ readIORef envRef -- get env from IORef and lift into IOThrowsError supermonad
+        maybe (Control.Monad.Trans.Error.throwError $ UnboundVar "Unbound variable" var)
+            (liftIO . readIORef) -- if Just val, then snipe val and put it in monad 
+            (lookup var env) -- lookup in dict, returns Maybe 
+
+-- set value of bound variable
+setVar :: Env -> String -> LispVal -> IOThrowsError LispVal
+setVar envRef var val =
+    do
+        env <- liftIO $ readIORef envRef -- get env from IORef
+        maybe (Control.Monad.Trans.Error.throwError $ UnboundVar "Unbound variable" var)
+            (liftIO . (flip writeIORef val)) -- if val exists, then write new value 
+            (lookup var env) -- lookup in dict, returns Maybe 
+        return val
+
+-- sets value if defined, or creates it if not
+defineVar :: Env -> String -> LispVal -> IOThrowsError LispVal
+defineVar envRef var value =
+    do
+        alreadyDefined <- liftIO $ isBound envRef var
+        if alreadyDefined
+            then setVar envRef var value >> return value
+            else liftIO $ do
+                valueRef <- newIORef value
+                env <- readIORef envRef 
+                writeIORef envRef ((var, valueRef) : env)
+                return value
+
+-- bind lots of vars at the same time (i.e. in function calls)
+bindVars :: Env -> [(String, LispVal)] -> IO Env
+bindVars envRef bindings = 
+    -- get env,           bind new vars,    put it in new IORef box
+    readIORef envRef >>= extendEnv bindings >>= newIORef
+    where -- extendEnv maps addBinding to list of desired bindings, and then appends env to end of list
+        extendEnv bindings env = liftM (++ env) (mapM addBinding bindings)
+        addBinding (var, value) = do -- takes in (name, val), puts it in new IORef box, returns (var, box)  
+                                    ref <- newIORef value
+                                    return (var, ref)
+
+
 
 
 
