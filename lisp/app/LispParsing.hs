@@ -14,14 +14,23 @@ where
 
 import Parsing
 import Control.Monad
--- import Evaluator
+import Control.Monad.Error
+import Data.Either
+import Control.Monad.Trans.Error hiding (catchError)
+import Control.Monad.IO.Class
+import Data.IORef -- stateful thread thing for envs, can only be used in IO monad
+import Datatypes
 
-data LispVal = Atom String 
-    | List [LispVal]
-    | DottedList [LispVal] LispVal
-    | Number Integer
-    | String String 
-    | Bool Bool
+-- data LispVal = Atom String 
+--     | List [LispVal]
+--     | DottedList [LispVal] LispVal
+--     | Number Integer
+--     | String String 
+--     | Bool Bool
+--     | PrimitiveFunc ([LispVal] -> ThrowsError LispVal)
+--     -- names of parameters, variable num of args, function body, func's env of creation 
+--     -- stored as record type
+--     | Func {params :: [String], vararg :: (Maybe String), body :: [LispVal], closure :: Env}
 
 ------------------------------------------------------------------------------
 -- Lisp-specific parsing functions
@@ -103,22 +112,29 @@ parseQuoted = do
                 a <- parseLispExpr
                 return (List [Atom "quote", a])
 
--- let there be a human-readable version of lispvals
-instance Show LispVal where show = showVal
+-- -- let there be a human-readable version of lispvals
+-- instance Show LispVal where show = showVal
 
-showVal :: LispVal -> String
-showVal (String s) = "\"" Prelude.++ s Prelude.++ "\""
-showVal (Atom name) = name
-showVal (Number num) = show num
-showVal (Bool True) = "#t"
-showVal (Bool False) = "#f"
-showVal (List l) = "(" Prelude.++ (unwordsList l) Prelude.++ ")"
-showVal (DottedList head tail) = "(" Prelude.++ (unwordsList head) 
-    Prelude.++ " . " Prelude.++ (showVal tail) Prelude.++ ")"
+-- showVal :: LispVal -> String
+-- showVal (String s) = "\"" Prelude.++ s Prelude.++ "\""
+-- showVal (Atom name) = name
+-- showVal (Number num) = show num
+-- showVal (Bool True) = "#t"
+-- showVal (Bool False) = "#f"
+-- showVal (List l) = "(" Prelude.++ (unwordsList l) Prelude.++ ")"
+-- showVal (DottedList head tail) = "(" Prelude.++ (unwordsList head) 
+--     Prelude.++ " . " Prelude.++ (showVal tail) Prelude.++ ")"
+-- showVal (PrimitiveFunc _) = "<primitive func>"
+-- -- just show header of function, aBsTrAcTiOn
+-- showVal (Func {params=args, vararg=varargs, body=body, closure=env}) =
+--     "(lambda (" ++ unwords (map show args) ++ 
+--         (case varargs of
+--             Nothing -> ""
+--             Just arg -> " . " ++ arg) ++ ") ... )"
 
--- convert a list of lispVals to a human-readable string
-unwordsList :: [LispVal] -> String 
-unwordsList = unwords . map showVal
+-- -- convert a list of lispVals to a human-readable string
+-- unwordsList :: [LispVal] -> String 
+-- unwordsList = unwords . map showVal
 
 
 

@@ -22,7 +22,8 @@ import Control.Monad.Error
 import Data.Either
 import Control.Monad.Trans.Error hiding (catchError)
 import Control.Monad.IO.Class
-import Data.IORef -- stateful thread thing for envs, can only be used in IO monad
+import Data.IORef 
+import Datatypes-- stateful thread thing for envs, can only be used in IO monad
 
 -- This module is the evaluator.
 -- i.e. evaluator :: Code -> Data
@@ -40,8 +41,8 @@ import Data.IORef -- stateful thread thing for envs, can only be used in IO mona
 -- Variables and assignments: 
 -- IORef is a state monad (box of mutable state) that gets passed around and mutated by IO actions
 -- another option is State monad, but we are using IO anyways so let's use IORef
-type Env = IORef [(String, IORef LispVal)] -- the type for states
-type IOThrowsError = ErrorT LispError IO -- takes one more arg, which is return type of function
+-- type Env = IORef [(String, IORef LispVal)] -- the type for states
+-- type IOThrowsError = ErrorT LispError IO -- takes one more arg, which is return type of function
 
 
 
@@ -81,10 +82,11 @@ evalLispExpr env badForm = Control.Monad.Error.throwError $ BadSpecialForm "Unre
 -- result is EITHER function applied to arguments, or LispError
 -- i.e. result is an Either value
 -- function is an operator stored in dictionary called primitives
-applyFunc :: String -> [LispVal] -> ThrowsError LispVal
-applyFunc func args = maybe (Control.Monad.Error.throwError $ NotFunction "Unrecognized primitive function args" func) 
-                        ($ args) 
-                        (lookup func primitives)
+applyFunc :: LispVal -> [LispVal] -> IOThrowsError LispVal
+applyFunc = undefined
+-- applyFunc func args = maybe (Control.Monad.Error.throwError $ NotFunction "Unrecognized primitive function args" func) 
+                        -- ($ args) 
+                        -- (lookup func primitives)
 
 
 -- dictionary of primitive operations
@@ -217,44 +219,44 @@ eqv badArgList = Control.Monad.Error.throwError $ NumArgs 2 badArgList
 -------------------------------------------------------------------
 -- Error Handling
 
-type SourceName = String
-type Line       = Int
-type Column     = Int
+-- type SourceName = String
+-- type Line       = Int
+-- type Column     = Int
 
--- represends source (filename), line, and column of things
-data SourcePos  = SourcePos SourceName !Line !Column
-    deriving (Eq, Ord)
+-- -- represends source (filename), line, and column of things
+-- data SourcePos  = SourcePos SourceName !Line !Column
+--     deriving (Eq, Ord)
 
-instance Show SourcePos where
-  show (SourcePos name line column)
-    | null name = showLineColumn
-    | otherwise = "\"" ++ name ++ "\" " ++ showLineColumn
-    where
-      showLineColumn    = "(line " ++ show line ++
-                          ", column " ++ show column ++
-                          ")"
+-- instance Show SourcePos where
+--   show (SourcePos name line column)
+--     | null name = showLineColumn
+--     | otherwise = "\"" ++ name ++ "\" " ++ showLineColumn
+--     where
+--       showLineColumn    = "(line " ++ show line ++
+--                           ", column " ++ show column ++
+--                           ")"
 
-data ParseError = ParseError !SourcePos [String]
+-- data ParseError = ParseError !SourcePos [String]
 
-data LispError = NumArgs Integer [LispVal]
-                | TypeMismatch String LispVal
-                | Parse ParseError
-                | BadSpecialForm String LispVal
-                | NotFunction String String
-                | UnboundVar String String
-                | Default String
+-- data LispError = NumArgs Integer [LispVal]
+--                 | TypeMismatch String LispVal
+--                 | Parse ParseError
+--                 | BadSpecialForm String LispVal
+--                 | NotFunction String String
+--                 | UnboundVar String String
+--                 | Default String
 
-instance Show LispError where show = showError
+-- instance Show LispError where show = showError
 
-showError :: LispError -> String
-showError (UnboundVar message varname) = message ++ ": " ++ varname
-showError (BadSpecialForm message form) = message ++ ": " ++ show form
-showError (NotFunction message func) = message ++ ": " ++ show func
-showError (NumArgs expected found) = "Expected: " ++ show expected
-                                ++ " args, found: " ++ show found                
-showError (TypeMismatch expected found) = "Type mismatch, expected: "
-                                ++ expected ++ ", found: " ++ show found         
-showError (Parse (ParseError sourcepos _)) = "Parse error at" ++ show sourcepos
+-- showError :: LispError -> String
+-- showError (UnboundVar message varname) = message ++ ": " ++ varname
+-- showError (BadSpecialForm message form) = message ++ ": " ++ show form
+-- showError (NotFunction message func) = message ++ ": " ++ show func
+-- showError (NumArgs expected found) = "Expected: " ++ show expected
+--                                 ++ " args, found: " ++ show found                
+-- showError (TypeMismatch expected found) = "Type mismatch, expected: "
+--                                 ++ expected ++ ", found: " ++ show found         
+-- showError (Parse (ParseError sourcepos _)) = "Parse error at" ++ show sourcepos
 
 -- make LispError an instance of Prelude's Error
 -- can use built in error handling funcs
