@@ -16,6 +16,18 @@ data LispError = NumArgs Integer [LispVal]
                 | NotFunction String String
                 | UnboundVar String String
                 | Default String
+
+
+-- make LispError an instance of Prelude's Error
+-- can use built in error handling funcs
+instance Error LispError where
+    noMsg = Default "An error has occured"
+    strMsg = Default
+
+-- type for functions that may throw a LispError or may return a value
+-- this is a CURRIED TYPE CONSTRUCTOR!
+-- i.e. if f :: Int->Int, then ThrowsError Integer => Either LispError Integer
+type ThrowsError = Either LispError
                 
 instance Show LispError where show = showError
 showError :: LispError -> String
@@ -56,7 +68,7 @@ data LispVal = Atom String
     | Number Integer
     | String String 
     | Bool Bool
-    | PrimitiveFunc ([LispVal] -> IOThrowsError LispVal) -- throwserror?
+    | PrimitiveFunc ([LispVal] -> ThrowsError LispVal) -- throwserror?
     -- names of parameters, variable num of args, function body, func's env of creation 
     -- stored as record type
     | Func {params :: [String], vararg :: (Maybe String), body :: [LispVal], closure :: Env}

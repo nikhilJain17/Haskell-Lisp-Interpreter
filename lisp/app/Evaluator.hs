@@ -11,7 +11,8 @@ SourcePos(..),
 Env,
 nullEnv,
 runIOThrows,
-liftThrows
+liftThrows,
+primitiveBindings
 )
 
 where
@@ -71,11 +72,34 @@ evalLispExpr env (List [Atom "set!", Atom var, form]) =
 
 evalLispExpr env (List [Atom "define", Atom var, form]) =
     evalLispExpr env form >>= defineVar env var
+--------------------------
+-- FUNCTION DEFINITION
 
+-- make LispVal with Function type constructor, and store it into env
+-- no varargs
+evalLispExpr env (List (Atom "define" : List (Atom var : params) : body)) =
+    makeNormalFunc env params body >>= defineVar env var 
+-- varargs
+evalLispExpr env (List (Atom "define" : DottedList (Atom var : params) varargs : body)) =
+    makeVarargs varargs env params body >>= defineVar env var
+-- lambda no varargs
+evalLispExpr env (List (Atom "lambda" : List params : body)) =
+    makeNormalFunc env params body
+-- lambda varargs
+evalLispExpr env (List (Atom "lambda" : DottedList params varargs : body)) =
+    makeVarargs varargs env params body
+-- 
+evalLispExpr env (List (Atom "lambda" : varargs@(Atom _) : body)) =
+    makeVarargs varargs env [] body
+
+evalLispExpr env (List (function : args)) = do
+    func <- evalLispExpr env function
+    argVals <- mapM (evalLispExpr env) args
+    applyFunc func argVals
 --------------------------
 -- FUNCTION APPLICATION
 -- note that we bind because we lift our values into ThrowsError monad
-evalLispExpr env (List (Atom func: args)) = mapM (evalLispExpr env) args >>= liftThrows . applyFunc func  -- [func, arg1, arg2,...]
+-- evalLispExpr env (List (Atom func: args)) = mapM (evalLispExpr env) args >>= liftThrows . applyFunc func  -- [func, arg1, arg2,...]
 evalLispExpr env badForm = Control.Monad.Error.throwError $ BadSpecialForm "Unrecognized special form" badForm
 
 
@@ -83,10 +107,42 @@ evalLispExpr env badForm = Control.Monad.Error.throwError $ BadSpecialForm "Unre
 -- i.e. result is an Either value
 -- function is an operator stored in dictionary called primitives
 applyFunc :: LispVal -> [LispVal] -> IOThrowsError LispVal
-applyFunc = undefined
+applyFunc (PrimitiveFunc func) args = liftThrows $ func args
+
+-- absolute beast of a function
+-- 1. verify correct number of params
+-- 2. zip param/args and put into IORef box
+-- 3. put varargs into IORef box
+-- 4. eval body
+applyFunc (Func params varargs body closure) args =
+    if num params /= num args && varargs == Nothing
+        then Control.Monad.Error.throwError $ NumArgs (num params) args
+        else (liftIO $ bindVars closure $ zip params args) >>=
+            bindVarArgs varargs >>= evalBody
+    where
+        remainingArgs = drop (length params) args
+        num = toInteger . length
+        evalBody env = liftM last $ mapM (evalLispExpr env) body
+        bindVarArgs arg env = case arg of
+            Just argName -> liftIO $ bindVars env [(argName, List $ remainingArgs)]
+            Nothing -> return env
+
+-- bind primitives to environment
+primitiveBindings :: IO Env
+-- initialize env with nullEnv
+-- pipe it to IORef box with function primitives
+primitiveBindings = nullEnv >>= (flip bindVars $ map makePrimitiveFunc primitives)
+    where -- lift
+        makePrimitiveFunc (var, func) = (var, PrimitiveFunc func)
+
+-- helper functions to make funcs
+makeFunc varargs env params body = return $ Func (map showVal params) varargs body env
+makeNormalFunc = makeFunc Nothing -- no varargs
+makeVarargs = makeFunc . Just . showVal
+
 -- applyFunc func args = maybe (Control.Monad.Error.throwError $ NotFunction "Unrecognized primitive function args" func) 
-                        -- ($ args) 
-                        -- (lookup func primitives)
+--                         ($ args) 
+--                         (lookup func primitives)
 
 
 -- dictionary of primitive operations
@@ -258,16 +314,16 @@ eqv badArgList = Control.Monad.Error.throwError $ NumArgs 2 badArgList
 --                                 ++ expected ++ ", found: " ++ show found         
 -- showError (Parse (ParseError sourcepos _)) = "Parse error at" ++ show sourcepos
 
--- make LispError an instance of Prelude's Error
--- can use built in error handling funcs
-instance Error LispError where
-    noMsg = Default "An error has occured"
-    strMsg = Default
+-- -- make LispError an instance of Prelude's Error
+-- -- can use built in error handling funcs
+-- instance Error LispError where
+--     noMsg = Default "An error has occured"
+--     strMsg = Default
 
--- type for functions that may throw a LispError or may return a value
--- this is a CURRIED TYPE CONSTRUCTOR!
--- i.e. if f :: Int->Int, then ThrowsError Integer => Either LispError Integer
-type ThrowsError = Either LispError
+-- -- type for functions that may throw a LispError or may return a value
+-- -- this is a CURRIED TYPE CONSTRUCTOR!
+-- -- i.e. if f :: Int->Int, then ThrowsError Integer => Either LispError Integer
+-- type ThrowsError = Either LispError
 
 -- all our errors turn into strings and get returned
 -- catchError takes an Either and a func

@@ -56,12 +56,14 @@ until_ pred prompt action =
         else action result >> until_ pred prompt action-- apply action to result, toss return val, and call until again
 
 -- master repl
+-- primitiveBindings binds prim. funcs up
+-- used to be nullRef, but now we want our funcs ready to go
 runRepl :: IO ()
-runRepl = nullEnv >>= until_ (== "quit") (readPrompt "Lisp >>> ") . evalAndPrint
+runRepl = primitiveBindings >>= until_ (== "quit") (readPrompt "Lisp >>> ") . evalAndPrint
 
 -- initialize env with null IORef 
 runOne :: String -> IO ()
-runOne expr = nullEnv >>= flip evalAndPrint expr
+runOne expr = primitiveBindings >>= flip evalAndPrint expr
 
 -- read an expression and interpret it as a lispval
 readLispExpr :: String -> ThrowsError LispVal
