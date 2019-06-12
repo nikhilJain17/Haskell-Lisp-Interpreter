@@ -14,7 +14,7 @@ import System.IO hiding (try)
 import System.Environment
 import Data.IORef -- stateful thread thing for envs, can only be used in IO monad
 -- import System.Console.Editline.Readline -- getLine doesn't accept backspaces
-
+import LispValF
 
 main :: IO ()
 main = do

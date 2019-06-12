@@ -5,6 +5,7 @@ import Control.Monad.Error
 import Data.Either
 import Control.Monad.Trans.Error hiding (catchError)
 import Control.Monad.IO.Class
+import Control.Monad.Fix
 import Data.IORef -- stateful thread thing for envs, can only be used in IO monad
 
 data ParseError = ParseError !SourcePos [String]
@@ -72,6 +73,21 @@ data LispVal = Atom String
     -- names of parameters, variable num of args, function body, func's env of creation 
     -- stored as record type
     | Func {params :: [String], vararg :: (Maybe String), body :: [LispVal], closure :: Env}
+
+-- f-algebra version of LispVal 
+-- data LispValF f = Atom String 
+--     | List [f]
+--     | DottedList [f] f
+--     | Number Integer
+--     | String String
+--     | Bool Bool
+--     | PrimitiveFunc ([f] -> ThrowsError f)
+--     | Func {params :: [String], vararg :: (Maybe String), body :: [f], closure :: Env}
+
+-- newtype Fix f = Fx (f (Fix f))
+
+-- type LispVal = Fix LispValF
+
 
 -- let there be a human-readable version of lispvals
 instance Show LispVal where show = showVal
