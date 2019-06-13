@@ -4,6 +4,17 @@ import Control.Monad.Error
 import Datatypes
 
 
+-- let d = ListF[ NumberF 4 ]
+-- d :: LispValF (LispValF Integer)
+
+-- let e = In (NumberF 4)
+-- e :: Fix LispValF
+
+-- let f = In (ListF [In (NumberF 4)])
+-- f :: 
+
+-- https://blog.sumtypeofway.com/recursion-schemes-part-41-2-better-living-through-base-functors/
+
 -- f algebra stuff
 data LispValF f = AtomF String 
 	| ListF [f]
