@@ -25,7 +25,8 @@ data LispValBasic = AtomBasic String
 	| NumberBasic Integer
 	| StringBasic String
 	| BoolBasic Bool
-	| PrimitiveFuncBasic ([LispValBasic] -> LispValBasic)
+	--		      op, i.e. "+"   argtypes   returntypes
+	| PrimitiveFuncBasic String [LispType] LispType -- don't store an actual haskell func, just store description of it
 
 -- parameterized lispval data type
 data LispValF f = AtomF String 
@@ -97,13 +98,17 @@ showBasic (BoolBasic b) = show b
 -- Type Checking
 ------------------------------------------------
 
-data LispType = NumType Integer | StrType String | BoolType Bool | Fn [LispType] LispType
+data LispType = NumType | StrType | BoolType | FnType [LispType] LispType
 
 instance Show (LispType) where show = showType
 showType :: LispType -> String
-showType (NumType n) = "Number: " ++ show n
-showType (StrType s) = "String: " ++ s
-showType (BoolType b) = "Boolean: " ++ show b
+showType (NumType) = "Number"
+showType (StrType) = "String"
+showType (BoolType) = "Boolean"
+showType (FnType args result) = "Function: <args " ++ unwordsType args ++ "> <return " ++ showType result
+
+unwordsType :: [LispType] -> String 
+unwordsType = unwords . map showType
 
 
 -- @TODO 
@@ -111,9 +116,10 @@ showType (BoolType b) = "Boolean: " ++ show b
 -- then the move is to abstract away recursion with recursion schemes
 getType :: LispValBasic -> LispType
 -- base cases are straightforward
-getType (NumberBasic n) = NumType n
-getType (StringBasic s) = StrType s
-getType (BoolBasic b) = BoolType b
+getType (NumberBasic n) = NumType
+getType (StringBasic s) = StrType
+getType (BoolBasic b) = BoolType
+getType (PrimitiveFuncBasic name argtypes returntypes) = FnType argtypes returntypes
 
 
 
