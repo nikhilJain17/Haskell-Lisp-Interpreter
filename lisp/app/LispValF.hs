@@ -1,22 +1,13 @@
 {-# LANGUAGE TypeFamilies #-}
 module LispValF where
-
+-- putting the F in F-algebra
 import Control.Monad.Error
 import Datatypes
 import Data.Functor.Foldable
 import Data.Functor.Foldable
--- import recursion-schemes-5.1.3.src.Data.Functor.Base
-
--- let d = ListF[ NumberF 4 ]
--- d :: LispValF (LispValF Integer)
-
--- let e = In (NumberF 4)
--- e :: Fix LispValF
-
--- let f = In (ListF [In (NumberF 4)])
--- f :: 
-
--- https://blog.sumtypeofway.com/recursion-schemes-part-41-2-better-living-through-base-functors/
+import Data.List
+import Parsing
+import Data.Char
 
 -- recursive lispval data type
 data LispValBasic = AtomBasic String
@@ -26,7 +17,8 @@ data LispValBasic = AtomBasic String
 	| StringBasic String
 	| BoolBasic Bool
 	--		      op, i.e. "+"   argtypes   returntypes
-	| PrimitiveFuncBasic String [LispType] LispType -- don't store an actual haskell func, just store description of it
+	| PrimitiveFuncBasic {name :: String, argtypes :: [LispType], returntype :: LispType} -- don't store an actual haskell func, just store description of it
+	| ErrBasic String -- hmm...
 
 -- parameterized lispval data type
 data LispValF f = AtomF String 
@@ -35,15 +27,12 @@ data LispValF f = AtomF String
 	| NumberF Integer
 	| StringF String
 	| BoolF Bool
-	| Error String -- this is if a func throws an error, to keep things easy (i.e. error is a lispvalf)
+	| ErrF String -- this is if a func throws an error, to keep things easy (i.e. error is a lispvalf)
 	| PrimitiveFuncF ([f] -> LispValF f)
 	-- | Func {params :: [String], vararg :: (Maybe String), body :: [f], closure :: Env}
 
 -- @todo type family stuff...
 type instance Base LispValBasic = LispValF
-
-
--- @TODO fix this stuff later for functions probably
 
 -- functors work on polymorphic types
 -- i.e. f :: * -> *
@@ -94,6 +83,9 @@ showBasic :: LispValBasic -> String
 showBasic (NumberBasic n) = show n
 showBasic (StringBasic s) = s
 showBasic (BoolBasic b) = show b
+showBasic (ErrBasic e) = e
+showBasic (AtomBasic a) = a
+showBasic (PrimitiveFuncBasic {name=name, argtypes=argtypes, returntype=returntype}) = name
 ------------------------------------------------
 -- Type Checking
 ------------------------------------------------
@@ -102,13 +94,14 @@ data LispType = NumType | StrType | BoolType | FnType [LispType] LispType
 
 instance Show (LispType) where show = showType
 showType :: LispType -> String
-showType (NumType) = "Number"
-showType (StrType) = "String"
-showType (BoolType) = "Boolean"
-showType (FnType args result) = "Function: <args " ++ unwordsType args ++ "> <return " ++ showType result
+showType (NumType) = "Num"
+showType (StrType) = "Str"
+showType (BoolType) = "Bool"
+showType (FnType args result) = "<Func: (" ++ unwordsType args ++ ") -> " ++ showType result ++ ">"
 
 unwordsType :: [LispType] -> String 
-unwordsType = unwords . map showType
+unwordsType = (intercalate ", ") . (map showType)
+
 
 
 -- @TODO 
@@ -122,8 +115,78 @@ getType (BoolBasic b) = BoolType
 getType (PrimitiveFuncBasic name argtypes returntypes) = FnType argtypes returntypes
 
 
+-- primitive funcs
+primitiveFuncs = 
+			[(PrimitiveFuncBasic "add" [NumType, NumType] NumType),
+			(PrimitiveFuncBasic "sub" [NumType, NumType] NumType),
+			(PrimitiveFuncBasic "concat" [StrType, StrType] StrType),
+			(PrimitiveFuncBasic "equal" [NumType, NumType] BoolType)]
+
+--------------------------------------------------------------------------
+-- Some parsers to take the user's input and turn it into a LispValBasic
+
+parseStr :: Parser LispValBasic
+parseStr = do
+				char '"'
+				str <- many (noneOf "\"")
+				char '"'
+				return (StringBasic str)
+
+parseNum :: Parser LispValBasic
+parseNum = do
+				num <- many (sat isDigit)
+				return (NumberBasic (read num))
+
+-- hmm... atoms...
+parseAtomB :: Parser LispValBasic
+parseAtomB = do
+				first <- letter +++ symbol   -- first char in lispval can be letter or symbol
+				rest <- many (letter +++ digit +++ symbol) -- other chars can also be num
+				let atom = [first] Prelude.++ rest -- assemble the atom
+				return $ case atom of           -- is it a true/false?  
+					"#t" -> BoolBasic True           -- otherwise just return the val
+					"#f" -> BoolBasic False          
+					otherwise -> AtomBasic atom
 
 
+parsePrimitiveFunc :: Parser LispValBasic
+parsePrimitiveFunc = do
+                        char '('
+                        -- get function name
+                        firstFnName <- letter
+                        restFnName <- many (letter +++ digit)
+                        char ')'
+                        let fnName = [firstFnName] Prelude.++ restFnName
+                        let match = [x | x <- primitiveFuncs, (name x) == fnName]
+                        return $ case match of 
+                        	[] -> ErrBasic "not primitive"
+                        	otherwise -> match!!0
+
+
+
+
+-- @todo something for functions
+-- (name ("fn-signature" (arg-type arg-type...) (return-type)) (result-type) (body))
+parseFunc :: Parser LispValBasic
+parseFunc = do
+				char '('
+				-- get function name
+				firstFnName <- letter
+				restFnName <- many (letter +++ digit)
+				-- get fn signature
+				char '('
+				-- @todo fill in rest here
+				-- end of fn 
+				char ')'
+				let fnName = [firstFnName] Prelude.++ restFnName
+				return (AtomBasic fnName)
+
+parseLispBasicExpr :: Parser LispValBasic
+parseLispBasicExpr = do
+						parseStr
+						+++ parseNum
+						+++ parseAtomB
+				
 
 
 

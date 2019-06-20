@@ -30,19 +30,20 @@ parse',
 letter,
 digit,
 many1
---isDigit
+-- isDigit
 -- newline_search
 ) 
 where
 
 import Data.Char
+import Datatypes
 -- import Monad
 -- http://www.cs.nott.ac.uk/~pszgmh/pearl.pdf
 
 -- define a parameterized parser type
 -- it's a func that takes a str and returns list of results
 -- nonempty string indicates success
-newtype Parser a = Parser (String -> [(a, String)])
+-- newtype Parser a = Parser (String -> [(a, String)])
 
 
 -- simple parser that parses each character
@@ -194,8 +195,6 @@ newline_search = do {a <- item; result <- symb "\n"; return result}
 -----------------------------------------------------------
 -- part 2 of parser
 
-type SourceName = String
-
 -- Parse repeated applications of parser p, 
 -- separated by applications of parser op
 -- whose result value is an OPERATOR that is assoc to right
@@ -242,7 +241,7 @@ s +-+ t = t Prelude.++ " " Prelude.++ s
 -- Works:   Just use sat with the appropriate predicate
 -- Ex:      apply symbol "=3" = [('=', "3")]
 symbol :: Parser Char
-symbol = oneOf "!$%&|*+-/:<=?>@^_~"
+symbol = oneOf "!$%&|*+-/:<=?>@^_~#"
 -- symbol = sat Data.Char.isSymbol
 
 -- Def:     Succeeds if current char is in input string

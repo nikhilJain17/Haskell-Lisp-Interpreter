@@ -8,6 +8,9 @@ import Control.Monad.IO.Class
 import Control.Monad.Fix
 import Data.IORef -- stateful thread thing for envs, can only be used in IO monad
 
+-- where it all started
+newtype Parser a = Parser (String -> [(a, String)])
+
 data ParseError = ParseError !SourcePos [String]
 
 data LispError = NumArgs Integer [LispVal]

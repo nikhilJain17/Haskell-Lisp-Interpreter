@@ -60,42 +60,42 @@ evalLispExpr env (List [Atom "quote", val]) = return val -- match for quoted exp
 --------------------------
 -- CONDITIONALS 
 evalLispExpr env (List [Atom "if", pred, conseq, alt]) =
-    do  
-        result <- evalLispExpr env pred
-        case result of -- (note that any value other than #f is True)
-            Bool False -> evalLispExpr env alt
-            otherwise -> evalLispExpr env conseq
+	do  
+		result <- evalLispExpr env pred
+		case result of -- (note that any value other than #f is True)
+			Bool False -> evalLispExpr env alt
+			otherwise -> evalLispExpr env conseq
 --------------------------
 -- VARIABLE ASSIGNMENT
 evalLispExpr env (List [Atom "set!", Atom var, form]) =
-    evalLispExpr env form >>= setVar env var -- (evalLisExpr env form) = val, pipe into setVar
+	evalLispExpr env form >>= setVar env var -- (evalLisExpr env form) = val, pipe into setVar
 
 evalLispExpr env (List [Atom "define", Atom var, form]) =
-    evalLispExpr env form >>= defineVar env var
+	evalLispExpr env form >>= defineVar env var
 --------------------------
 -- FUNCTION DEFINITION
 
 -- make LispVal with Function type constructor, and store it into env
 -- no varargs
 evalLispExpr env (List (Atom "define" : List (Atom var : params) : body)) =
-    makeNormalFunc env params body >>= defineVar env var 
+	makeNormalFunc env params body >>= defineVar env var 
 -- varargs
 evalLispExpr env (List (Atom "define" : DottedList (Atom var : params) varargs : body)) =
-    makeVarargs varargs env params body >>= defineVar env var
+	makeVarargs varargs env params body >>= defineVar env var
 -- lambda no varargs
 evalLispExpr env (List (Atom "lambda" : List params : body)) =
-    makeNormalFunc env params body
+	makeNormalFunc env params body
 -- lambda varargs
 evalLispExpr env (List (Atom "lambda" : DottedList params varargs : body)) =
-    makeVarargs varargs env params body
+	makeVarargs varargs env params body
 -- 
 evalLispExpr env (List (Atom "lambda" : varargs@(Atom _) : body)) =
-    makeVarargs varargs env [] body
+	makeVarargs varargs env [] body
 
 evalLispExpr env (List (function : args)) = do
-    func <- evalLispExpr env function
-    argVals <- mapM (evalLispExpr env) args
-    applyFunc func argVals
+	func <- evalLispExpr env function
+	argVals <- mapM (evalLispExpr env) args
+	applyFunc func argVals
 --------------------------
 -- FUNCTION APPLICATION
 -- note that we bind because we lift our values into ThrowsError monad
@@ -115,25 +115,25 @@ applyFunc (PrimitiveFunc func) args = liftThrows $ func args
 -- 3. put varargs into IORef box
 -- 4. eval body
 applyFunc (Func params varargs body closure) args =
-    if num params /= num args && varargs == Nothing
-        then Control.Monad.Error.throwError $ NumArgs (num params) args
-        else (liftIO $ bindVars closure $ zip params args) >>=
-            bindVarArgs varargs >>= evalBody
-    where
-        remainingArgs = drop (length params) args
-        num = toInteger . length
-        evalBody env = liftM last $ mapM (evalLispExpr env) body
-        bindVarArgs arg env = case arg of
-            Just argName -> liftIO $ bindVars env [(argName, List $ remainingArgs)]
-            Nothing -> return env
+	if num params /= num args && varargs == Nothing
+		then Control.Monad.Error.throwError $ NumArgs (num params) args
+		else (liftIO $ bindVars closure $ zip params args) >>=
+			bindVarArgs varargs >>= evalBody
+	where
+		remainingArgs = drop (length params) args
+		num = toInteger . length
+		evalBody env = liftM last $ mapM (evalLispExpr env) body
+		bindVarArgs arg env = case arg of
+			Just argName -> liftIO $ bindVars env [(argName, List $ remainingArgs)]
+			Nothing -> return env
 
 -- bind primitives to environment
 primitiveBindings :: IO Env
 -- initialize env with nullEnv
 -- pipe it to IORef box with function primitives
 primitiveBindings = nullEnv >>= (flip bindVars $ map makePrimitiveFunc primitives)
-    where -- lift
-        makePrimitiveFunc (var, func) = (var, PrimitiveFunc func)
+	where -- lift
+		makePrimitiveFunc (var, func) = (var, PrimitiveFunc func)
 
 -- helper functions to make funcs
 makeFunc varargs env params body = return $ Func (map showVal params) varargs body env
@@ -148,41 +148,41 @@ makeVarargs = makeFunc . Just . showVal
 -- dictionary of primitive operations
 primitives :: [(String, [LispVal] -> ThrowsError LispVal)]
 primitives = [("+", numericBinop (+)), -- numeric ops
-              ("-", numericBinop (-)),
-              ("*", numericBinop (*)),
-              ("/", numericBinop div),
-              ("mod", numericBinop mod),
-              ("quotient", numericBinop quot),
-              ("remainder", numericBinop rem),
-              ("=", numBoolBinop (==)), -- comparison ops for num
-              ("<", numBoolBinop (<)),
-              (">", numBoolBinop (>)),
-              ("/=", numBoolBinop (/=)),
-              (">=", numBoolBinop (>=)),
-              ("<=", numBoolBinop (<=)),
-              ("&&", boolBoolBinop (&&)), -- comparison ops for bools
-              ("||", boolBoolBinop (||)),
-              ("string=?", strBoolBinop (==)), -- comparison for str
-              ("string?", strBoolBinop (>)),
-              ("string<=?", strBoolBinop (<=)),
-              ("string>=?", strBoolBinop (>=)),
-              ("car", car), -- LISt Processing functions
-              ("cdr", cdr),
-              ("cons", cons),
-              ("eq?", eqv),
-              ("eqv?", eqv),
-              ("equal?", equal)] 
+			  ("-", numericBinop (-)),
+			  ("*", numericBinop (*)),
+			  ("/", numericBinop div),
+			  ("mod", numericBinop mod),
+			  ("quotient", numericBinop quot),
+			  ("remainder", numericBinop rem),
+			  ("=", numBoolBinop (==)), -- comparison ops for num
+			  ("<", numBoolBinop (<)),
+			  (">", numBoolBinop (>)),
+			  ("/=", numBoolBinop (/=)),
+			  (">=", numBoolBinop (>=)),
+			  ("<=", numBoolBinop (<=)),
+			  ("&&", boolBoolBinop (&&)), -- comparison ops for bools
+			  ("||", boolBoolBinop (||)),
+			  ("string=?", strBoolBinop (==)), -- comparison for str
+			  ("string?", strBoolBinop (>)),
+			  ("string<=?", strBoolBinop (<=)),
+			  ("string>=?", strBoolBinop (>=)),
+			  ("car", car), -- LISt Processing functions
+			  ("cdr", cdr),
+			  ("cons", cons),
+			  ("eq?", eqv),
+			  ("eqv?", eqv),
+			  ("equal?", equal)] 
 
 
 -- generic boolBinop function that is PARAMETERIZED by unpacker func
 -- i.e. the unpacker converts LispVals into native Haskell types
 boolBinop :: (LispVal -> ThrowsError a) -> (a -> a -> Bool) -> [LispVal] -> ThrowsError LispVal
 boolBinop unpacker op args = if length args /= 2 
-                                then Control.Monad.Error.throwError $ NumArgs 2 args
-                            else do -- note that either arg may throw TypeMismatch
-                                    left <- unpacker $ args !! 0
-                                    right <- unpacker $ args !! 1
-                                    return $ Bool $ left `op` right
+								then Control.Monad.Error.throwError $ NumArgs 2 args
+							else do -- note that either arg may throw TypeMismatch
+									left <- unpacker $ args !! 0
+									right <- unpacker $ args !! 1
+									return $ Bool $ left `op` right
 -- amazing
 numBoolBinop = boolBinop unpackNum
 strBoolBinop = boolBinop unpackStr
@@ -214,9 +214,9 @@ numericBinop op args = (mapM unpackNum args) >>= (return . Number . foldl1 op)
 unpackNum :: LispVal -> ThrowsError Integer
 unpackNum (Number n) = return n
 unpackNum (String s) = let parsed = reads s in
-                        if null parsed 
-                            then Control.Monad.Error.throwError $ TypeMismatch "number" $ String s
-                        else return $ fst $ parsed !! 0
+						if null parsed 
+							then Control.Monad.Error.throwError $ TypeMismatch "number" $ String s
+						else return $ fst $ parsed !! 0
 
 unpackNum (List [n]) = unpackNum n -- one element list only
 unpackNum notNum = Control.Monad.Error.throwError $ TypeMismatch "number" notNum
@@ -264,11 +264,11 @@ eqv [(String arg1), (String arg2)] = return $ Bool (arg1 == arg2)
 eqv [(Atom arg1), (Atom arg2)] = return $ Bool (arg1 == arg2)
 eqv [(DottedList x tailX), (DottedList y tailY)] = eqv [List (x ++ [tailX]), List (y ++ [tailY]) ]
 eqv [(List arg1), (List arg2)] = return $ Bool $ (length arg1 == length arg2) && 
-    (and $ map eqvPair $ zip arg1 arg2) -- and = foldr1 (&&)
-        where 
-            eqvPair (x1, x2) = case eqv [x1, x2] of
-                                    Left err -> False
-                                    Right (Bool val) -> val
+	(and $ map eqvPair $ zip arg1 arg2) -- and = foldr1 (&&)
+		where 
+			eqvPair (x1, x2) = case eqv [x1, x2] of
+									Left err -> False
+									Right (Bool val) -> val
 eqv [_, _] = return $ Bool False -- type mismatch...
 eqv badArgList = Control.Monad.Error.throwError $ NumArgs 2 badArgList
 
@@ -327,8 +327,8 @@ eqv badArgList = Control.Monad.Error.throwError $ NumArgs 2 badArgList
 
 -- all our errors turn into strings and get returned
 -- catchError takes an Either and a func
-    -- if the Either has an error, then it applies the func to the either
-    -- in this case, we turn our errors into strings and put that string into an either
+	-- if the Either has an error, then it applies the func to the either
+	-- in this case, we turn our errors into strings and put that string into an either
 -- trapError :: ThrowsError a -> Either
 trapError action = catchError action (return . show)
 
@@ -349,10 +349,10 @@ data Unpacker = forall a. Eq a => AnyUnpacker (LispVal -> ThrowsError a)
 -- takes an Unpacker, determines if two LispVals are equal when it unpacks them
 unpackEquals :: LispVal -> LispVal -> Unpacker -> ThrowsError Bool
 unpackEquals arg1 arg2 (AnyUnpacker unpacker) =
-    do
-        unpacked1 <- unpacker arg1 -- convert LispVals to Haskell values
-        unpacked2 <- unpacker arg2
-        return (unpacked1 == unpacked2) `catchError` (const $ return False)
+	do
+		unpacked1 <- unpacker arg1 -- convert LispVals to Haskell values
+		unpacked2 <- unpacker arg2
+		return (unpacked1 == unpacked2) `catchError` (const $ return False)
 
 -- (equal? "2" 2) = #t
 -- objects are equal? if they print the same
@@ -363,11 +363,11 @@ unpackEquals arg1 arg2 (AnyUnpacker unpacker) =
 
 equal :: [LispVal] -> ThrowsError LispVal
 equal [arg1, arg2] = 
-    do  -- make hetero list of funcs, then mapM unpack them to get vals, then OR them to fold the 2 elem list 
-        primitiveEquals <- liftM or $ mapM (unpackEquals arg1 arg2) 
-            [AnyUnpacker unpackNum, AnyUnpacker unpackStr, AnyUnpacker unpackBool]
-        eqvEquals <- eqv [arg1, arg2]
-        return $ Bool $ (primitiveEquals || let (Bool x) = eqvEquals in x)
+	do  -- make hetero list of funcs, then mapM unpack them to get vals, then OR them to fold the 2 elem list 
+		primitiveEquals <- liftM or $ mapM (unpackEquals arg1 arg2) 
+			[AnyUnpacker unpackNum, AnyUnpacker unpackStr, AnyUnpacker unpackBool]
+		eqvEquals <- eqv [arg1, arg2]
+		return $ Bool $ (primitiveEquals || let (Bool x) = eqvEquals in x)
 
 equal badArgList = Control.Monad.Error.throwError $ NumArgs 2 badArgList
 
@@ -411,45 +411,45 @@ isBound envRef var = readIORef envRef >>= return . maybe False (const True) . lo
 -- get value of bound variable
 getVar :: Env -> String -> IOThrowsError LispVal
 getVar envRef var = 
-    do 
-        env <- liftIO $ readIORef envRef -- get env from IORef and lift into IOThrowsError supermonad
-        maybe (Control.Monad.Trans.Error.throwError $ UnboundVar "Unbound variable" var)
-            (liftIO . readIORef) -- if Just val, then snipe val and put it in monad 
-            (lookup var env) -- lookup in dict, returns Maybe 
+	do 
+		env <- liftIO $ readIORef envRef -- get env from IORef and lift into IOThrowsError supermonad
+		maybe (Control.Monad.Trans.Error.throwError $ UnboundVar "Unbound variable" var)
+			(liftIO . readIORef) -- if Just val, then snipe val and put it in monad 
+			(lookup var env) -- lookup in dict, returns Maybe 
 
 -- set value of bound variable
 setVar :: Env -> String -> LispVal -> IOThrowsError LispVal
 setVar envRef var val =
-    do
-        env <- liftIO $ readIORef envRef -- get env from IORef
-        maybe (Control.Monad.Trans.Error.throwError $ UnboundVar "Unbound variable" var)
-            (liftIO . (flip writeIORef val)) -- if val exists, then write new value 
-            (lookup var env) -- lookup in dict, returns Maybe 
-        return val
+	do
+		env <- liftIO $ readIORef envRef -- get env from IORef
+		maybe (Control.Monad.Trans.Error.throwError $ UnboundVar "Unbound variable" var)
+			(liftIO . (flip writeIORef val)) -- if val exists, then write new value 
+			(lookup var env) -- lookup in dict, returns Maybe 
+		return val
 
 -- sets value if defined, or creates it if not
 defineVar :: Env -> String -> LispVal -> IOThrowsError LispVal
 defineVar envRef var value =
-    do
-        alreadyDefined <- liftIO $ isBound envRef var
-        if alreadyDefined
-            then setVar envRef var value >> return value
-            else liftIO $ do
-                valueRef <- newIORef value
-                env <- readIORef envRef 
-                writeIORef envRef ((var, valueRef) : env)
-                return value
+	do
+		alreadyDefined <- liftIO $ isBound envRef var
+		if alreadyDefined
+			then setVar envRef var value >> return value
+			else liftIO $ do
+				valueRef <- newIORef value
+				env <- readIORef envRef 
+				writeIORef envRef ((var, valueRef) : env)
+				return value
 
 -- bind lots of vars at the same time (i.e. in function calls)
 bindVars :: Env -> [(String, LispVal)] -> IO Env
 bindVars envRef bindings = 
-    -- get env,           bind new vars,    put it in new IORef box
-    readIORef envRef >>= extendEnv bindings >>= newIORef
-    where -- extendEnv maps addBinding to list of desired bindings, and then appends env to end of list
-        extendEnv bindings env = liftM (++ env) (mapM addBinding bindings)
-        addBinding (var, value) = do -- takes in (name, val), puts it in new IORef box, returns (var, box)  
-                                    ref <- newIORef value
-                                    return (var, ref)
+	-- get env,           bind new vars,    put it in new IORef box
+	readIORef envRef >>= extendEnv bindings >>= newIORef
+	where -- extendEnv maps addBinding to list of desired bindings, and then appends env to end of list
+		extendEnv bindings env = liftM (++ env) (mapM addBinding bindings)
+		addBinding (var, value) = do -- takes in (name, val), puts it in new IORef box, returns (var, box)  
+									ref <- newIORef value
+									return (var, ref)
 
 
 
