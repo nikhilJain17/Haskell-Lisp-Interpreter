@@ -7,7 +7,8 @@ parseList,
 parseDottedList,
 parseQuoted,
 showVal,
-LispVal(..)
+LispVal(..),
+parseFuncTypeCheck
 )
 
 where
@@ -111,6 +112,37 @@ parseQuoted = do
                 char '\'' -- get quote
                 a <- parseLispExpr
                 return (List [Atom "quote", a])
+
+getType :: LispVal -> LispType
+-- base cases are straightforward
+getType (Number n) = NumType
+getType (String s) = StrType
+getType (Bool b) = BoolType
+getType (FuncTypeCheck name argtypes returntypes) = FnType argtypes returntypes
+
+
+primitiveFuncTypes = 
+            [(FuncTypeCheck "add" [NumType, NumType] NumType),
+            (FuncTypeCheck "sub" [NumType, NumType] NumType),
+            (FuncTypeCheck "concat" [StrType, StrType] StrType),
+            (FuncTypeCheck "equal" [NumType, NumType] BoolType)]
+
+
+atomToString (Atom a) = a
+
+-- create unique syntax for primitive funcs for type checking
+-- (add 1 0)
+parseFuncTypeCheck :: Parser LispVal
+parseFuncTypeCheck = do
+                        char '('
+                        char '!'
+                        funcName <- parseAtom
+                        funcArgs <- (sepby parseLispExpr spaces)
+                        char ')'
+                        let fnName = atomToString funcName
+                        let match = [x | x <- primitiveFuncTypes, (name x) == fnName]
+                        -- return the expected return type
+                        return (FuncTypeCheck fnName ((map getType) funcArgs) (returntype (match!!0))) 
 
 -- -- let there be a human-readable version of lispvals
 -- instance Show LispVal where show = showVal
