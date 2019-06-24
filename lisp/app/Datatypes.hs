@@ -76,6 +76,11 @@ data LispVal = Atom String
     -- names of parameters, variable num of args, function body, func's env of creation 
     -- stored as record type
     | Func {params :: [String], vararg :: (Maybe String), body :: [LispVal], closure :: Env}
+    | FuncTypeCheck {name :: String, argtypes :: [LispType], returntype :: LispType} -- don't store an actual haskell func, just store description of it
+
+
+data LispType = NumType | StrType | BoolType | FnType [LispType] LispType
+
 
 -- f-algebra version of LispVal 
 -- data LispValF f = Atom String 
